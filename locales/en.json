@@ -1,0 +1,387 @@
+{
+  "app": {
+    "title": "PDFCraft - Professional PDF Tools",
+    "description": "Everything you need to work with PDFs. Merge, split, compress, convert, edit, and manage PDF files online."
+  },
+  "nav": {
+    "home": "Home",
+    "tools": "All Tools",
+    "pricing": "Pricing",
+    "about": "About",
+    "login": "Login",
+    "getStarted": "Get Started"
+  },
+  "hero": {
+    "title": "Everything You Need to Work With PDFs",
+    "subtitle": "Merge, split, compress, convert, edit, and manage your PDF files online. Fast, secure, and easy to use.",
+    "cta": "Explore PDF Tools",
+    "upload": "Upload PDF"
+  },
+  "upload": {
+    "dragDrop": "Drag & drop files here",
+    "or": "or",
+    "browse": "Browse Files",
+    "supported": "Supported: PDF, JPG, PNG",
+    "maxSize": "Maximum file size: 50MB",
+    "remove": "Remove",
+    "uploading": "Uploading...",
+    "error": "Upload failed. Please try again.",
+    "invalidType": "Invalid file type. Please upload a PDF, JPG, or PNG file.",
+    "tooLarge": "File is too large. Maximum size is 50MB."
+  },
+  "tools": {
+    "organize": {
+      "title": "Organize PDF",
+      "mergePdf": {
+        "title": "Merge PDF",
+        "description": "Combine multiple PDF files into one document."
+      },
+      "splitPdf": {
+        "title": "Split PDF",
+        "description": "Split a PDF file into multiple documents."
+      },
+      "rotatePdf": {
+        "title": "Rotate PDF",
+        "description": "Rotate PDF pages to the correct orientation."
+      },
+      "reorderPages": {
+        "title": "Reorder Pages",
+        "description": "Rearrange pages in your PDF document."
+      },
+      "deletePages": {
+        "title": "Delete Pages",
+        "description": "Remove unwanted pages from your PDF."
+      },
+      "extractPages": {
+        "title": "Extract Pages",
+        "description": "Extract specific pages from a PDF document."
+      }
+    },
+    "optimize": {
+      "title": "Optimize PDF",
+      "compressPdf": {
+        "title": "Compress PDF",
+        "description": "Reduce PDF file size while maintaining quality."
+      }
+    },
+    "convert": {
+      "title": "Convert PDF",
+      "jpgToPdf": {
+        "title": "JPG to PDF",
+        "description": "Convert JPG images to PDF documents."
+      },
+      "pdfToJpg": {
+        "title": "PDF to JPG",
+        "description": "Convert PDF pages to JPG images."
+      },
+      "pdfToPng": {
+        "title": "PDF to PNG",
+        "description": "Convert PDF pages to PNG images."
+      },
+      "pdfToText": {
+        "title": "PDF to Text",
+        "description": "Extract text content from PDF files."
+      },
+      "pdfToWord": {
+        "title": "PDF to Word",
+        "description": "Convert PDF files to Word documents.",
+        "requiresProvider": true
+      },
+      "wordToPdf": {
+        "title": "Word to PDF",
+        "description": "Convert Word documents to PDF files.",
+        "requiresProvider": true
+      },
+      "pdfToExcel": {
+        "title": "PDF to Excel",
+        "description": "Convert PDF tables to Excel spreadsheets.",
+        "requiresProvider": true
+      },
+      "excelToPdf": {
+        "title": "Excel to PDF",
+        "description": "Convert Excel spreadsheets to PDF files.",
+        "requiresProvider": true
+      }
+    },
+    "edit": {
+      "title": "Edit PDF",
+      "editPdf": {
+        "title": "Edit PDF",
+        "description": "Add text, images, and annotations to your PDF."
+      },
+      "watermark": {
+        "title": "Watermark",
+        "description": "Add watermark text or images to your PDF."
+      },
+      "pageNumbers": {
+        "title": "Page Numbers",
+        "description": "Add page numbers to your PDF document."
+      },
+      "cropPdf": {
+        "title": "Crop PDF",
+        "description": "Crop and resize PDF pages."
+      },
+      "annotatePdf": {
+        "title": "Annotate PDF",
+        "description": "Add annotations and highlights to your PDF."
+      }
+    },
+    "security": {
+      "title": "Security",
+      "protectPdf": {
+        "title": "Protect PDF",
+        "description": "Password-protect your PDF files."
+      },
+      "unlockPdf": {
+        "title": "Unlock PDF",
+        "description": "Remove password protection from PDF files."
+      },
+      "removeMetadata": {
+        "title": "Remove Metadata",
+        "description": "Remove metadata from PDF documents."
+      }
+    }
+  },
+  "processing": {
+    "idle": "Ready to process",
+    "processing": "Processing your file...",
+    "completed": "Processing complete!",
+    "failed": "Processing failed. Please try again.",
+    "download": "Download Result",
+    "processAnother": "Process Another File",
+    "merging": "Merging PDFs...",
+    "splitting": "Splitting PDF...",
+    "compressing": "Compressing PDF...",
+    "converting": "Converting...",
+    "protecting": "Protecting PDF...",
+    "unlocking": "Unlocking PDF...",
+    "editing": "Editing PDF..."
+  },
+  "editor": {
+    "addText": "Add Text",
+    "addImage": "Add Image",
+    "addWatermark": "Watermark",
+    "addPageNumbers": "Page Numbers",
+    "rotatePages": "Rotate",
+    "cropPages": "Crop",
+    "annotate": "Annotate",
+    "highlight": "Highlight",
+    "undo": "Undo",
+    "redo": "Redo",
+    "export": "Export",
+    "zoomIn": "Zoom In",
+    "zoomOut": "Zoom Out",
+    "fitPage": "Fit Page",
+    "prevPage": "Previous Page",
+    "nextPage": "Next Page",
+    "pages": "Pages"
+  },
+  "pricing": {
+    "title": "Simple, Transparent Pricing",
+    "subtitle": "Choose the plan that works for you",
+    "popular": "Most Popular",
+    "free": {
+      "name": "Free",
+      "price": "$0",
+      "period": "forever",
+      "features": [
+        "Basic PDF tools",
+        "Up to 10MB file size",
+        "5 operations per day",
+        "Standard processing"
+      ],
+      "cta": "Get Started"
+    },
+    "pro": {
+      "name": "Pro",
+      "price": "$9.99",
+      "period": "per month",
+      "features": [
+        "All PDF tools",
+        "Up to 100MB file size",
+        "Unlimited operations",
+        "Priority processing",
+        "Advanced conversions",
+        "PDF editor"
+      ],
+      "cta": "Start Free Trial"
+    },
+    "enterprise": {
+      "name": "Enterprise",
+      "price": "$29.99",
+      "period": "per month",
+      "features": [
+        "Everything in Pro",
+        "Unlimited file size",
+        "API access",
+        "Batch processing",
+        "Custom integrations",
+        "Priority support"
+      ],
+      "cta": "Contact Sales"
+    }
+  },
+  "about": {
+    "title": "About PDFCraft",
+    "description": "PDFCraft is a professional online PDF tools platform designed to help you work with PDF files efficiently and securely.",
+    "mission": "Our Mission",
+    "missionText": "We believe working with PDFs should be simple, fast, and accessible to everyone. PDFCraft provides powerful tools that make PDF management effortless — no installation required.",
+    "values": "Why Choose Us",
+    "fast": "Lightning Fast",
+    "fastDescription": "Process your PDFs in seconds with our optimized server-side technology.",
+    "secure": "Secure by Design",
+    "secureDescription": "Your files are encrypted in transit and automatically deleted after processing.",
+    "easyToUse": "Easy to Use",
+    "easyToUseDescription": "A clean, intuitive interface that requires no learning curve."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "recentJobs": "Recent Jobs",
+    "noJobs": "No jobs yet. Start by uploading a file.",
+    "status": "Status",
+    "tool": "Tool",
+    "date": "Date",
+    "actions": "Actions",
+    "download": "Download",
+    "delete": "Delete",
+    "completed": "Completed",
+    "processing": "Processing",
+    "pending": "Pending",
+    "failed": "Failed",
+    "expired": "Expired"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "retry": "Try Again",
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "select": "Select",
+    "done": "Done",
+    "or": "or",
+    "file": "File",
+    "files": "Files",
+    "page": "Page",
+    "pages": "Pages",
+    "size": "Size",
+    "type": "Type",
+    "name": "Name",
+    "date": "Date",
+    "search": "Search",
+    "noResults": "No results found",
+    "notFound": "Page Not Found",
+    "notFoundDescription": "The page you're looking for doesn't exist or has been moved.",
+    "backToHome": "Back to Home"
+  },
+  "toolPages": {
+    "uploadHint": "Upload your files to get started",
+    "filesReady": "files ready",
+    "fileReady": "file ready",
+    "mergePdf": "Merge PDF",
+    "splitPdf": "Split PDF",
+    "compressPdf": "Compress PDF",
+    "rotatePdf": "Rotate PDF",
+    "editPdf": "Edit PDF",
+    "annotatePdf": "Annotate PDF",
+    "pageNumbers": "Page Numbers",
+    "cropPdf": "Crop PDF",
+    "watermark": "Watermark",
+    "protectPdf": "Protect PDF",
+    "unlockPdf": "Unlock PDF",
+    "convertToPdf": "Convert to PDF",
+    "convertToJpg": "Convert to JPG",
+    "splitOptions": "Split Options",
+    "startPage": "Start Page",
+    "endPage": "End Page",
+    "compressionQuality": "Compression Quality",
+    "qualityLow": "Low",
+    "qualityMedium": "Medium",
+    "qualityHigh": "High",
+    "originalSize": "Original Size",
+    "compressedSize": "Compressed Size",
+    "reduction": "Reduction",
+    "rotationAngle": "Rotation Angle",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "enterPassword": "Enter password to protect the PDF",
+    "enterPasswordUnlock": "Enter the password to unlock the PDF",
+    "passwordsDoNotMatch": "Passwords do not match",
+    "providerRequired": "This feature requires an external provider API key. Please configure it in your environment variables to use this tool.",
+    "minimum2Files": "Upload at least 2 files to merge",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "removeFile": "Remove file",
+    "pageCount": "{count} pages",
+    "uploading": "Uploading...",
+    "imageToPdfHint": "Upload JPG or PNG images to convert them into a single PDF document.",
+    "deletePages": "Delete Pages",
+    "pagesToDelete": "Pages to Delete",
+    "pagesToDeleteHint": "Enter page numbers separated by commas. Use ranges like 1-3.",
+    "pagesToDeletePlaceholder": "e.g. 1, 3, 5-7",
+    "extractPages": "Extract Pages",
+    "pagesToExtract": "Pages to Extract",
+    "pagesToExtractHint": "Enter page numbers or ranges to extract.",
+    "pagesToExtractPlaceholder": "e.g. 1-3, 5, 8",
+    "reorderPages": "Reorder Pages",
+    "newPageOrder": "New Page Order",
+    "newPageOrderHint": "Enter page numbers in the desired order.",
+    "newPageOrderPlaceholder": "e.g. 3, 1, 2",
+    "invalidPageRange": "Please enter valid page numbers.",
+    "convertToPng": "Convert to PNG",
+    "convertToText": "Convert to Text",
+    "convertToWord": "Convert to Word",
+    "convertWordToPdf": "Convert Word to PDF",
+    "convertToExcel": "Convert to Excel",
+    "convertExcelToPdf": "Convert Excel to PDF",
+    "watermarkText": "Watermark Text",
+    "watermarkTextPlaceholder": "Enter watermark text",
+    "position": "Position",
+    "positionCenter": "Center",
+    "positionTop": "Top",
+    "positionBottom": "Bottom",
+    "opacity": "Opacity",
+    "fontSize": "Font Size",
+    "applyWatermark": "Apply Watermark",
+    "bottomCenter": "Bottom Center",
+    "bottomLeft": "Bottom Left",
+    "bottomRight": "Bottom Right",
+    "startPageNumber": "Start Page Number",
+    "addPageNumbers": "Add Page Numbers",
+    "fileInfo": "File Information",
+    "fileName": "File Name",
+    "fileSize": "File Size",
+    "openEditor": "Open Editor",
+    "cropMargins": "Crop Margins",
+    "cropMarginsHint": "Enter the margin values in pixels to crop from each side.",
+    "marginTop": "Top",
+    "marginBottom": "Bottom",
+    "marginLeft": "Left",
+    "marginRight": "Right",
+    "applyCrop": "Apply Crop",
+    "comingSoon": "This feature is coming soon. Full annotation support is under development.",
+    "plannedFeatures": "Planned Features",
+    "addComments": "Add Comments",
+    "highlightText": "Highlight Text",
+    "addShapes": "Add Shapes",
+    "removeMetadata": "Remove Metadata",
+    "removeMetadataDescription": "Remove all metadata from your PDF file including author, title, keywords, and other properties.",
+    "removeMetadataHint": "This will strip all metadata fields from the document while keeping the content intact."
+  },
+  "footer": {
+    "description": "Professional PDF tools for everyone. Fast, secure, and easy to use.",
+    "tools": "Tools",
+    "company": "Company",
+    "about": "About",
+    "pricing": "Pricing",
+    "blog": "Blog",
+    "contact": "Contact",
+    "support": "Support",
+    "help": "Help Center",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "copyright": "© 2024 PDFCraft. All rights reserved."
+  }
+}

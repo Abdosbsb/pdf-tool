@@ -1,0 +1,387 @@
+{
+  "app": {
+    "title": "PDFCraft - أدوات PDF احترافية",
+    "description": "كل ما تحتاجه للعمل مع ملفات PDF. دمج، تقسيم، ضغط، تحويل، تحرير وإدارة ملفات PDF عبر الإنترنت."
+  },
+  "nav": {
+    "home": "الرئيسية",
+    "tools": "جميع الأدوات",
+    "pricing": "الأسعار",
+    "about": "حول",
+    "login": "تسجيل الدخول",
+    "getStarted": "ابدأ الآن"
+  },
+  "hero": {
+    "title": "كل ما تحتاجه للعمل مع ملفات PDF",
+    "subtitle": "ادمج، قسِّم، اضغط، حوّل، حرّر وأدر ملفات PDF الخاصة بك عبر الإنترنت. سريع وآمن وسهل الاستخدام.",
+    "cta": "استكشف أدوات PDF",
+    "upload": "رفع ملف PDF"
+  },
+  "upload": {
+    "dragDrop": "اسحب وأفلت الملفات هنا",
+    "or": "أو",
+    "browse": "تصفح الملفات",
+    "supported": "المدعومة: PDF, JPG, PNG",
+    "maxSize": "الحد الأقصى لحجم الملف: 50 ميجابايت",
+    "remove": "إزالة",
+    "uploading": "جاري الرفع...",
+    "error": "فشل الرفع. يرجى المحاولة مرة أخرى.",
+    "invalidType": "نوع الملف غير صالح. يرجى رفع ملف PDF أو JPG أو PNG.",
+    "tooLarge": "الملف كبير جداً. الحد الأقصى للحجم هو 50 ميجابايت."
+  },
+  "tools": {
+    "organize": {
+      "title": "تنظيم PDF",
+      "mergePdf": {
+        "title": "دمج PDF",
+        "description": "ادمج ملفات PDF متعددة في مستند واحد."
+      },
+      "splitPdf": {
+        "title": "تقسيم PDF",
+        "description": "قسِّم ملف PDF إلى مستندات متعددة."
+      },
+      "rotatePdf": {
+        "title": "تدوير PDF",
+        "description": "دوّر صفحات PDF إلى الاتجاه الصحيح."
+      },
+      "reorderPages": {
+        "title": "إعادة ترتيب الصفحات",
+        "description": "أعد ترتيب الصفحات في مستند PDF."
+      },
+      "deletePages": {
+        "title": "حذف الصفحات",
+        "description": "أزل الصفحات غير المرغوب فيها من ملف PDF."
+      },
+      "extractPages": {
+        "title": "استخراج الصفحات",
+        "description": "استخرج صفحة أو أكثر من مستند PDF."
+      }
+    },
+    "optimize": {
+      "title": "تحسين PDF",
+      "compressPdf": {
+        "title": "ضغط PDF",
+        "description": "قلل حجم ملف PDF مع الحفاظ على الجودة."
+      }
+    },
+    "convert": {
+      "title": "تحويل PDF",
+      "jpgToPdf": {
+        "title": "JPG إلى PDF",
+        "description": "حوّل صور JPG إلى مستندات PDF."
+      },
+      "pdfToJpg": {
+        "title": "PDF إلى JPG",
+        "description": "حوّل صفحات PDF إلى صور JPG."
+      },
+      "pdfToPng": {
+        "title": "PDF إلى PNG",
+        "description": "حوّل صفحات PDF إلى صور PNG."
+      },
+      "pdfToText": {
+        "title": "PDF إلى نص",
+        "description": "استخرج المحتوى النصي من ملفات PDF."
+      },
+      "pdfToWord": {
+        "title": "PDF إلى Word",
+        "description": "حوّل ملفات PDF إلى مستندات Word.",
+        "requiresProvider": true
+      },
+      "wordToPdf": {
+        "title": "Word إلى PDF",
+        "description": "حوّل مستندات Word إلى ملفات PDF.",
+        "requiresProvider": true
+      },
+      "pdfToExcel": {
+        "title": "PDF إلى Excel",
+        "description": "حوّل جداول PDF إلى جداول بيانات Excel.",
+        "requiresProvider": true
+      },
+      "excelToPdf": {
+        "title": "Excel إلى PDF",
+        "description": "حوّل جداول بيانات Excel إلى ملفات PDF.",
+        "requiresProvider": true
+      }
+    },
+    "edit": {
+      "title": "تحرير PDF",
+      "editPdf": {
+        "title": "تحرير PDF",
+        "description": "أضف نصوصاً وصوراً وتعليقات توضيحية إلى ملف PDF."
+      },
+      "watermark": {
+        "title": "علامة مائية",
+        "description": "أضف علامة مائية نصية أو صور إلى ملف PDF."
+      },
+      "pageNumbers": {
+        "title": "ترقيم الصفحات",
+        "description": "أضف أرقام صفحات إلى مستند PDF."
+      },
+      "cropPdf": {
+        "title": "قص PDF",
+        "description": "قص وغيّر حجم صفحات PDF."
+      },
+      "annotatePdf": {
+        "title": "تعليقات PDF",
+        "description": "أضف تعليقات وتمييزات إلى ملف PDF."
+      }
+    },
+    "security": {
+      "title": "الأمان",
+      "protectPdf": {
+        "title": "حماية PDF",
+        "description": "احمِ ملفات PDF بكلمة مرور."
+      },
+      "unlockPdf": {
+        "title": "فتح PDF",
+        "description": "أزل حماية كلمة المرور من ملفات PDF."
+      },
+      "removeMetadata": {
+        "title": "إزالة البيانات الوصفية",
+        "description": "أزل البيانات الوصفية من مستندات PDF."
+      }
+    }
+  },
+  "processing": {
+    "idle": "جاهز للمعالجة",
+    "processing": "جاري معالجة ملفك...",
+    "completed": "اكتملت المعالجة!",
+    "failed": "فشلت المعالجة. يرجى المحاولة مرة أخرى.",
+    "download": "تحميل النتيجة",
+    "processAnother": "معالجة ملف آخر",
+    "merging": "دمج PDFs...",
+    "splitting": "تقسيم PDF...",
+    "compressing": "ضغط PDF...",
+    "converting": "جاري التحويل...",
+    "protecting": "حماية PDF...",
+    "unlocking": "فتح PDF...",
+    "editing": "تحرير PDF..."
+  },
+  "editor": {
+    "addText": "إضافة نص",
+    "addImage": "إضافة صورة",
+    "addWatermark": "علامة مائية",
+    "addPageNumbers": "ترقيم الصفحات",
+    "rotatePages": "تدوير",
+    "cropPages": "قص",
+    "annotate": "تعليقات",
+    "highlight": "تمييز",
+    "undo": "تراجع",
+    "redo": "إعادة",
+    "export": "تصدير",
+    "zoomIn": "تكبير",
+    "zoomOut": "تصغير",
+    "fitPage": "ملائمة الصفحة",
+    "prevPage": "الصفحة السابقة",
+    "nextPage": "الصفحة التالية",
+    "pages": "الصفحات"
+  },
+  "pricing": {
+    "title": "أسعار بسيطة وشفافة",
+    "subtitle": "اختر الخطة التي تناسبك",
+    "popular": "الأكثر شيوعاً",
+    "free": {
+      "name": "مجاني",
+      "price": "$0",
+      "period": "إلى الأبد",
+      "features": [
+        "أدوات PDF الأساسية",
+        "حتى 10 ميجابايت حجم الملف",
+        "5 عمليات يومياً",
+        "معالجة عادية"
+      ],
+      "cta": "ابدأ الآن"
+    },
+    "pro": {
+      "name": "احترافي",
+      "price": "$9.99",
+      "period": "شهرياً",
+      "features": [
+        "جميع أدوات PDF",
+        "حتى 100 ميجابايت حجم الملف",
+        "عمليات غير محدودة",
+        "معالجة ذات أولوية",
+        "تحويلات متقدمة",
+        "محرر PDF"
+      ],
+      "cta": "ابدأ التجربة المجانية"
+    },
+    "enterprise": {
+      "name": "المؤسسات",
+      "price": "$29.99",
+      "period": "شهرياً",
+      "features": [
+        "كل ما في الاحترافي",
+        "حجم ملف غير محدود",
+        "وصول API",
+        "معالجة دفعية",
+        "تكاملات مخصصة",
+        "دعم ذات أولوية"
+      ],
+      "cta": "اتصل بفريق المبيعات"
+    }
+  },
+  "about": {
+    "title": "حول PDFCraft",
+    "description": "PDFCraft هو منصة احترافية لأدوات PDF عبر الإنترنت مصممة لمساعدتك في العمل مع ملفات PDF بكفاءة وأمان.",
+    "mission": "مهمتنا",
+    "missionText": "نؤمن بأن العمل مع ملفات PDF يجب أن يكون بسيطاً وسريعاً ومتاحاً للجميع. يوفر PDFCraft أدوات قوية تجعل إدارة PDF سهلة — بدون الحاجة إلى تثبيت.",
+    "values": "لماذا تختارنا",
+    "fast": "سرعة فائقة",
+    "fastDescription": "عالج ملفات PDF في ثوانٍ باستخدام تقنية الخادم المحسّنة.",
+    "secure": "آمن بالتصميم",
+    "secureDescription": "ملفاتك مشفرة أثناء النقل وتحذف تلقائياً بعد المعالجة.",
+    "easyToUse": "سهل الاستخدام",
+    "easyToUseDescription": "واجهة نظيفة وبديهية لا تحتاج إلى وقت تعلم."
+  },
+  "dashboard": {
+    "title": "لوحة التحكم",
+    "recentJobs": "العمليات الأخيرة",
+    "noJobs": "لا توجد عمليات بعد. ابدأ برفع ملف.",
+    "status": "الحالة",
+    "tool": "الأداة",
+    "date": "التاريخ",
+    "actions": "الإجراءات",
+    "download": "تحميل",
+    "delete": "حذف",
+    "completed": "مكتمل",
+    "processing": "قيد المعالجة",
+    "pending": "قيد الانتظار",
+    "failed": "فشل",
+    "expired": "منتهي الصلاحية"
+  },
+  "common": {
+    "loading": "جاري التحميل...",
+    "error": "حدث خطأ ما",
+    "retry": "حاول مرة أخرى",
+    "cancel": "إلغاء",
+    "save": "حفظ",
+    "close": "إغلاق",
+    "back": "رجوع",
+    "next": "التالي",
+    "select": "اختيار",
+    "done": "تم",
+    "or": "أو",
+    "file": "ملف",
+    "files": "ملفات",
+    "page": "صفحة",
+    "pages": "صفحات",
+    "size": "الحجم",
+    "type": "النوع",
+    "name": "الاسم",
+    "date": "التاريخ",
+    "search": "بحث",
+    "noResults": "لم يتم العثور على نتائج",
+    "notFound": "الصفحة غير موجودة",
+    "notFoundDescription": "الصفحة التي تبحث عنها غير موجودة أو تم نقلها.",
+    "backToHome": "العودة إلى الرئيسية"
+  },
+  "toolPages": {
+    "uploadHint": "ارفع ملفاتك للبدء",
+    "filesReady": "ملفات جاهزة",
+    "fileReady": "ملف جاهز",
+    "mergePdf": "دمج PDF",
+    "splitPdf": "تقسيم PDF",
+    "compressPdf": "ضغط PDF",
+    "rotatePdf": "تدوير PDF",
+    "editPdf": "تحرير PDF",
+    "annotatePdf": "تعليقات PDF",
+    "pageNumbers": "ترقيم الصفحات",
+    "cropPdf": "قص PDF",
+    "watermark": "علامة مائية",
+    "protectPdf": "حماية PDF",
+    "unlockPdf": "فتح PDF",
+    "convertToPdf": "تحويل إلى PDF",
+    "convertToJpg": "تحويل إلى JPG",
+    "splitOptions": "خيارات التقسيم",
+    "startPage": "صفحة البداية",
+    "endPage": "صفحة النهاية",
+    "compressionQuality": "جودة الضغط",
+    "qualityLow": "منخفضة",
+    "qualityMedium": "متوسطة",
+    "qualityHigh": "عالية",
+    "originalSize": "الحجم الأصلي",
+    "compressedSize": "الحجم بعد الضغط",
+    "reduction": "التخفيض",
+    "rotationAngle": "زاوية الدوران",
+    "password": "كلمة المرور",
+    "confirmPassword": "تأكيد كلمة المرور",
+    "enterPassword": "أدخل كلمة المرور لحماية ملف PDF",
+    "enterPasswordUnlock": "أدخل كلمة المرور لفتح ملف PDF",
+    "passwordsDoNotMatch": "كلمتا المرور غير متطابقتين",
+    "providerRequired": "هذه الميزة تتطلب مفتاح API لمزود خارجي. يرجى تكوينه في متغيرات البيئة لاستخدام هذه الأداة.",
+    "minimum2Files": "ارفع ملفين على الأقل للدمج",
+    "moveUp": "تحريك لأعلى",
+    "moveDown": "تحريك لأسفل",
+    "removeFile": "إزالة الملف",
+    "pageCount": "{count} صفحات",
+    "uploading": "جاري الرفع...",
+    "imageToPdfHint": "ارفع صور JPG أو PNG لتحويلها إلى مستند PDF واحد.",
+    "deletePages": "حذف الصفحات",
+    "pagesToDelete": "الصفحات المراد حذفها",
+    "pagesToDeleteHint": "أدخل أرقام الصفحات مفصولة بفواصل. استخدم النطاقات مثل 1-3.",
+    "pagesToDeletePlaceholder": "مثال: 1, 3, 5-7",
+    "extractPages": "استخراج الصفحات",
+    "pagesToExtract": "الصفحات المراد استخراجها",
+    "pagesToExtractHint": "أدخل أرقام الصفحات أو النطاقات للاستخراج.",
+    "pagesToExtractPlaceholder": "مثال: 1-3, 5, 8",
+    "reorderPages": "إعادة ترتيب الصفحات",
+    "newPageOrder": "ترتيب الصفحات الجديد",
+    "newPageOrderHint": "أدخل أرقام الصفحات بالترتيب المطلوب.",
+    "newPageOrderPlaceholder": "مثال: 3, 1, 2",
+    "invalidPageRange": "يرجى إدخال أرقام صفحات صالحة.",
+    "convertToPng": "تحويل إلى PNG",
+    "convertToText": "تحويل إلى نص",
+    "convertToWord": "تحويل إلى Word",
+    "convertWordToPdf": "تحويل Word إلى PDF",
+    "convertToExcel": "تحويل إلى Excel",
+    "convertExcelToPdf": "تحويل Excel إلى PDF",
+    "watermarkText": "نص العلامة المائية",
+    "watermarkTextPlaceholder": "أدخل نص العلامة المائية",
+    "position": "الموضع",
+    "positionCenter": "الوسط",
+    "positionTop": "الأعلى",
+    "positionBottom": "الأسفل",
+    "opacity": "الشفافية",
+    "fontSize": "حجم الخط",
+    "applyWatermark": "تطبيق العلامة المائية",
+    "bottomCenter": "أسفل الوسط",
+    "bottomLeft": "أسفل اليسار",
+    "bottomRight": "أسفل اليمين",
+    "startPageNumber": "رقم صفحة البداية",
+    "addPageNumbers": "إضافة أرقام الصفحات",
+    "fileInfo": "معلومات الملف",
+    "fileName": "اسم الملف",
+    "fileSize": "حجم الملف",
+    "openEditor": "فتح المحرر",
+    "cropMargins": "هوامش القص",
+    "cropMarginsHint": "أدخل قيم الهوامش بالبكسل للقص من كل جانب.",
+    "marginTop": "العلوي",
+    "marginBottom": "السفلي",
+    "marginLeft": "الأيسر",
+    "marginRight": "الأيمن",
+    "applyCrop": "تطبيق القص",
+    "comingSoon": "هذه الميزة قادمة قريباً. دعم كامل للتعليقات قيد التطوير.",
+    "plannedFeatures": "الميزات المخططة",
+    "addComments": "إضافة تعليقات",
+    "highlightText": "تمييز النص",
+    "addShapes": "إضافة أشكال",
+    "removeMetadata": "إزالة البيانات الوصفية",
+    "removeMetadataDescription": "إزالة جميع البيانات الوصفية من ملف PDF بما في ذلك المؤلف والعنوان والكلمات المفتاحية والخصائص الأخرى.",
+    "removeMetadataHint": "سيؤدي هذا إلى إزالة جميع حقول البيانات الوصفية من المستند مع الحفاظ على المحتوى سليماً."
+  },
+  "footer": {
+    "description": "أدوات PDF احترافية للجميع. سريعة وآمنة وسهلة الاستخدام.",
+    "tools": "الأدوات",
+    "company": "الشركة",
+    "about": "حول",
+    "pricing": "الأسعار",
+    "blog": "المدونة",
+    "contact": "اتصل بنا",
+    "support": "الدعم",
+    "help": "مركز المساعدة",
+    "privacy": "سياسة الخصوصية",
+    "terms": "شروط الخدمة",
+    "copyright": "© 2024 PDFCraft. جميع الحقوق محفوظة."
+  }
+}
