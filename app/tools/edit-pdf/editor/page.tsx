@@ -1,21 +1,36 @@
 "use client";
 
-import { Suspense, useState, useCallback } from "react";
+import { Suspense, useState, useCallback, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
 import PdfEditor from "@/components/pdf-editor/PdfEditor";
 import FileUpload from "@/components/upload/FileUpload";
 import Spinner from "@/components/ui/Spinner";
+import { getCachedFile, removeCachedFile } from "@/lib/file-cache";
 import type { UploadedFile, ApiResponse } from "@/types";
 
 function EditorContent() {
   const { t } = useLanguage();
   const searchParams = useSearchParams();
-  const fileId = searchParams.get("fileId");
+  const cacheKey = searchParams.get("key");
+  const urlFileName = searchParams.get("fileName");
+  const initialTool = searchParams.get("tool");
 
-  const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
+  const [editorFile, setEditorFile] = useState<{ fileId: string; fileName: string; initialTool?: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (cacheKey) {
+      const cached = getCachedFile(cacheKey);
+      if (cached) {
+        const name = urlFileName || cached.name;
+        const objectUrl = URL.createObjectURL(cached);
+        setEditorFile({ fileId: objectUrl, fileName: name, initialTool: initialTool || undefined });
+        removeCachedFile(cacheKey);
+      }
+    }
+  }, [cacheKey, urlFileName, initialTool]);
 
   const handleFileSelected = useCallback(async (selected: File[]) => {
     if (selected.length === 0) return;
@@ -25,11 +40,23 @@ function EditorContent() {
       const formData = new FormData();
       formData.append("file", selected[0]);
       const res = await fetch("/api/upload", { method: "POST", body: formData });
-      const json: ApiResponse<UploadedFile> = await res.json();
+
+      let json: ApiResponse<UploadedFile>;
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        json = await res.json();
+      } else {
+        const text = await res.text();
+        if (!res.ok) {
+          throw new Error(text || t("upload.error"));
+        }
+        throw new Error(t("upload.error"));
+      }
+
       if (!json.success || !json.data) {
         throw new Error(json.error?.message || t("upload.error"));
       }
-      setUploadedFile(json.data);
+      setEditorFile({ fileId: `/api/files/${json.data.id}`, fileName: json.data.name });
     } catch (err) {
       setError(err instanceof Error ? err.message : t("upload.error"));
     } finally {
@@ -37,12 +64,8 @@ function EditorContent() {
     }
   }, [t]);
 
-  if (fileId) {
-    return <PdfEditor fileId={fileId} fileName="document.pdf" />;
-  }
-
-  if (uploadedFile) {
-    return <PdfEditor fileId={uploadedFile.id} fileName={uploadedFile.name} />;
+  if (editorFile) {
+    return <PdfEditor fileId={editorFile.fileId} fileName={editorFile.fileName} initialTool={editorFile.initialTool} />;
   }
 
   return (

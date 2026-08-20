@@ -31,13 +31,16 @@ export default function ToolOptions({ activeTool, options, onOptionChange }: Too
     <div className="flex h-full w-64 flex-col border-l border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
       <div className="border-b border-gray-200 px-3 py-2 dark:border-gray-700">
         <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
-          {t(`editor.${activeTool === "text" ? "addText" : activeTool === "image" ? "addImage" : activeTool === "watermark" ? "addWatermark" : activeTool === "pageNumbers" ? "addPageNumbers" : activeTool === "rotate" ? "rotatePages" : activeTool === "crop" ? "cropPages" : activeTool}`)}
+          {t(`editor.${activeTool === "text" ? "addText" : activeTool === "comment" ? "addComment" : activeTool === "image" ? "addImage" : activeTool === "watermark" ? "addWatermark" : activeTool === "pageNumbers" ? "addPageNumbers" : activeTool === "rotate" ? "rotatePages" : activeTool === "crop" ? "cropPages" : activeTool}`)}
         </p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3">
         {activeTool === "text" && (
           <TextOptions options={options} onOptionChange={onOptionChange} t={t} />
+        )}
+        {activeTool === "comment" && (
+          <CommentOptions options={options} onOptionChange={onOptionChange} t={t} />
         )}
         {activeTool === "image" && (
           <ImageOptions options={options} onOptionChange={onOptionChange} t={t} />
@@ -543,6 +546,67 @@ function AnnotateOptions({
           max={20}
         />
       </div>
+    </div>
+  );
+}
+
+function CommentOptions({
+  options,
+  onOptionChange,
+  t,
+}: {
+  options: Record<string, unknown>;
+  onOptionChange: (key: string, value: unknown) => void;
+  t: (k: string) => string;
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <FieldLabel>{t("editor.writeComment")}</FieldLabel>
+        <textarea
+          value={(options.commentText as string) || ""}
+          onChange={(e) => onOptionChange("commentText", e.target.value)}
+          placeholder={t("editor.writeCommentPlaceholder")}
+          rows={4}
+          className="w-full resize-none rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200"
+        />
+      </div>
+      <div>
+        <FieldLabel>{t("toolPages.fontSize")}</FieldLabel>
+        <NumberInput
+          value={(options.fontSize as number) || 14}
+          onChange={(v) => onOptionChange("fontSize", v)}
+          min={8}
+          max={72}
+        />
+      </div>
+      <div>
+        <FieldLabel>Color</FieldLabel>
+        <div className="flex flex-wrap gap-2">
+          {colorPresets.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => onOptionChange("color", c)}
+              className={`h-6 w-6 rounded-full border-2 transition-transform ${
+                options.color === c
+                  ? "border-brand-500 scale-110"
+                  : "border-gray-200 hover:scale-105"
+              }`}
+              style={{ backgroundColor: c }}
+            />
+          ))}
+          <input
+            type="color"
+            value={(options.color as string) || "#FF0000"}
+            onChange={(e) => onOptionChange("color", e.target.value)}
+            className="h-6 w-6 cursor-pointer rounded-full border-0"
+          />
+        </div>
+      </div>
+      <p className="text-xs text-gray-400 dark:text-gray-500">
+        {t("editor.clickToPlaceComment")}
+      </p>
     </div>
   );
 }

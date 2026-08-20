@@ -31,40 +31,43 @@ export function createFileMeta(name: string, size: number, type: string): FileMe
 }
 
 export function isValidFileType(file: File, accepts: string[]): boolean {
-  const mimeMap: Record<string, string[]> = {
-    pdf: ["application/pdf"],
-    image: ["image/jpeg", "image/png"],
-    word: [
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ],
-    excel: [
-      "application/vnd.ms-excel",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    ],
-  };
-
-  const extMap: Record<string, string[]> = {
-    pdf: [".pdf"],
-    image: [".jpg", ".jpeg", ".png"],
-    word: [".doc", ".docx"],
-    excel: [".xls", ".xlsx"],
+  const allExtensions: string[] = [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx", ".xls", ".xlsx", ".txt"];
+  const mimeToExt: Record<string, string[]> = {
+    "application/pdf": [".pdf"],
+    "image/jpeg": [".jpg", ".jpeg"],
+    "image/jpg": [".jpg", ".jpeg"],
+    "image/png": [".png"],
+    "application/msword": [".doc"],
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+    "application/vnd.ms-excel": [".xls"],
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
   };
 
   const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")).toLowerCase() : "";
+  const effectiveType = file.type || (ext && ext in mimeToExt ? "" : "");
 
   for (const accept of accepts) {
-    const mimes = mimeMap[accept];
-    if (mimes && file.type && mimes.includes(file.type)) return true;
+    if (accept.startsWith(".")) {
+      if (ext === accept.toLowerCase()) return true;
+      continue;
+    }
+
+    const familyExts = mimeToExt[accept];
+    if (familyExts) {
+      if (file.type && familyExts.includes(file.type)) return true;
+      if (file.type && file.type === accept) return true;
+      if (ext && familyExts.includes(ext)) return true;
+      continue;
+    }
 
     if (accept.startsWith("image/") || accept.startsWith("application/")) {
       if (file.type && file.type === accept) return true;
-      const category = Object.keys(mimeMap).find((k) => mimeMap[k].includes(accept));
-      if (category && extMap[category]?.includes(ext)) return true;
+      if (ext) {
+        for (const [mime, exts] of Object.entries(mimeToExt)) {
+          if (mime === accept && exts.includes(ext)) return true;
+        }
+      }
     }
-
-    const extensions = extMap[accept];
-    if (extensions && extensions.includes(ext)) return true;
   }
   return false;
 }

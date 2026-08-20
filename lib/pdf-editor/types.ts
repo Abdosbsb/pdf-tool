@@ -1,6 +1,6 @@
 export interface Annotation {
   id: string;
-  type: "text" | "image" | "watermark" | "pageNumber" | "highlight" | "draw";
+  type: "text" | "image" | "watermark" | "pageNumber" | "highlight" | "draw" | "comment";
   pageNumber: number;
   x: number;
   y: number;
@@ -30,6 +30,7 @@ export type EditorAction =
   | { type: "SET_ZOOM"; payload: number }
   | { type: "SET_TOOL"; payload: string }
   | { type: "ADD_ANNOTATION"; payload: Annotation }
+  | { type: "UPDATE_ANNOTATION"; payload: { id: string; changes: Partial<Annotation> } }
   | { type: "REMOVE_ANNOTATION"; payload: string }
   | { type: "UNDO" }
   | { type: "REDO" }

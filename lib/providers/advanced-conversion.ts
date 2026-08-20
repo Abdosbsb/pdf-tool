@@ -135,6 +135,10 @@ async function createJob(
 
   if (!res.ok) {
     const body = await res.json().catch(() => null);
+    console.error(
+      `[cloudconvert] Job creation failed (HTTP ${res.status}):`,
+      JSON.stringify(body)
+    );
     if (res.status === 401 || res.status === 403) {
       throw new Error(
         "Invalid or unauthorized API key. Please check your PDF_PROVIDER_API_KEY configuration."
@@ -215,8 +219,27 @@ async function waitForJob(jobId: string): Promise<CCJobResponse> {
     }
 
     const job: CCJobResponse = await res.json();
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+    if (job.data.tasks) {
+      for (const task of job.data.tasks) {
+        console.log(
+          `[cloudconvert] Job ${jobId} [${elapsed}s] Task "${task.operation}" (id=${task.id}): status=${task.status}` +
+            (task.message ? ` message="${task.message}"` : "") +
+            (task.code ? ` code="${task.code}"` : "")
+        );
+        if (task.status === "completed" && task.result?.files) {
+          for (const f of task.result.files) {
+            console.log(
+              `[cloudconvert]   -> output: ${f.filename} (${f.size} bytes)`
+            );
+          }
+        }
+      }
+    }
 
     if (job.data.status === "finished") {
+      console.log(`[cloudconvert] Job ${jobId} finished in ${elapsed}s`);
       return job;
     }
 
@@ -225,6 +248,12 @@ async function waitForJob(jobId: string): Promise<CCJobResponse> {
         (t) => t.status === "error"
       );
       const taskMsg = failedTask?.message || failedTask?.code;
+      const taskDetail = failedTask
+        ? `[task "${failedTask.operation}" id=${failedTask.id}]`
+        : "[no failed task found]";
+      console.error(
+        `[cloudconvert] Job ${jobId} FAILED after ${elapsed}s ${taskDetail}: ${taskMsg || "unknown error"}`
+      );
       throw new Error(
         taskMsg || "CloudConvert conversion failed"
       );
@@ -276,10 +305,18 @@ class CloudConvertProvider implements AdvancedConversionProvider {
       },
     });
 
+    console.log(
+      `[cloudconvert] Job created: ${job.data.id}, status: ${job.data.status}, tasks: ${job.data.tasks?.map((t) => `${t.operation}(${t.status})`).join(", ")}`
+    );
+
     const importTask = job.data.tasks.find(
       (t) => t.operation === "import/upload"
     );
     if (!importTask?.result?.form) {
+      console.error(
+        `[cloudconvert] No import task or upload URL found. Tasks:`,
+        JSON.stringify(job.data.tasks?.map((t) => ({ operation: t.operation, status: t.status, id: t.id })))
+      );
       throw new Error("CloudConvert did not provide an upload URL");
     }
 
@@ -299,6 +336,9 @@ class CloudConvertProvider implements AdvancedConversionProvider {
     );
     const files = exportTask?.result?.files;
     if (!files || files.length === 0) {
+      console.error(
+        `[cloudconvert] No output files. Export task status: ${exportTask?.status}, message: ${exportTask?.message}`
+      );
       throw new Error("CloudConvert produced no output files");
     }
 

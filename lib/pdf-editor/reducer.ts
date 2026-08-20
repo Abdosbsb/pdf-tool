@@ -29,6 +29,21 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       };
     }
 
+    case "UPDATE_ANNOTATION": {
+      const newAnnotations = state.annotations.map((a) =>
+        a.id === action.payload.id ? { ...a, ...action.payload.changes } : a
+      );
+      const newHistory = state.history.slice(0, state.historyIndex + 1);
+      newHistory.push(newAnnotations);
+      if (newHistory.length > MAX_HISTORY) newHistory.shift();
+      return {
+        ...state,
+        annotations: newAnnotations,
+        history: newHistory,
+        historyIndex: newHistory.length - 1,
+      };
+    }
+
     case "REMOVE_ANNOTATION": {
       const filtered = state.annotations.filter((a) => a.id !== action.payload);
       const hist = state.history.slice(0, state.historyIndex + 1);

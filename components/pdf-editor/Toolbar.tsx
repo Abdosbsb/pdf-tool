@@ -23,6 +23,7 @@ interface ToolbarProps {
 
 const tools = [
   { id: "text", icon: "M4 6h16M4 12h8m-8 6h16", label: "editor.addText" },
+  { id: "comment", icon: "M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z", label: "editor.addComment" },
   { id: "image", icon: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z", label: "editor.addImage" },
   { id: "watermark", icon: "M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z", label: "editor.addWatermark" },
   { id: "pageNumbers", icon: "M7 20l4-16m2 16l4-16M6 9h14M4 15h14", label: "editor.addPageNumbers" },

@@ -189,7 +189,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const message =
       error instanceof Error ? error.message : "Advanced conversion failed";
 
-    console.error("[advanced-conversion]", message);
+    console.error("[advanced-conversion] Error:", message);
+    if (error instanceof Error && error.stack) {
+      console.error("[advanced-conversion] Stack:", error.stack);
+    }
 
     const isAuthError =
       message.includes("401") ||
@@ -201,6 +204,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       isAuthError ||
       isMissingKey ||
       message.includes("requires an external provider");
+    const isTimeout = message.includes("timed out");
+    const isCloudConvertError =
+      message.includes("CloudConvert") || message.includes("conversion failed");
 
     if (isProviderError) {
       return NextResponse.json(
@@ -219,12 +225,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    let userMessage: string;
+    if (isTimeout) {
+      userMessage = "Conversion timed out. The file may be too large or complex. Please try a smaller file.";
+    } else if (isCloudConvertError) {
+      userMessage = `Conversion failed: ${message}`;
+    } else {
+      userMessage = "Failed to convert file. Please try again.";
+    }
+
     return NextResponse.json(
       {
         success: false,
         error: {
           code: "CONVERSION_FAILED",
-          message: "Failed to convert file. Please try again.",
+          message: userMessage,
         },
       },
       { status: 500 }

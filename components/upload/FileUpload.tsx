@@ -101,6 +101,26 @@ export default function FileUpload({
     [onFilesSelected]
   );
 
+  const inputAccept = useMemo(() => {
+    if (!accept || accept.length === 0) return undefined;
+    const mimeExtMap: Record<string, string> = {
+      "application/pdf": ".pdf",
+      "image/jpeg": ".jpg,.jpeg",
+      "image/jpg": ".jpg,.jpeg",
+      "image/png": ".png",
+      "application/msword": ".doc",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+      "application/vnd.ms-excel": ".xls",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+    };
+    const extraExts: string[] = [];
+    for (const a of accept) {
+      if (mimeExtMap[a]) extraExts.push(mimeExtMap[a]);
+    }
+    const exts = extraExts.length > 0 ? "," + extraExts.join(",") : "";
+    return accept.join(",") + exts;
+  }, [accept]);
+
   const acceptedLabels = accept?.join(", ").toUpperCase() ?? "PDF";
 
   const imagePreviewUrls = useMemo(() => {
@@ -131,7 +151,7 @@ export default function FileUpload({
         <input
           ref={inputRef}
           type="file"
-          accept={accept?.join(",")}
+          accept={inputAccept}
           multiple={multiple}
           onChange={handleInputChange}
           className="hidden"

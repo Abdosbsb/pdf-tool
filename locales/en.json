@@ -180,6 +180,7 @@
   },
   "editor": {
     "addText": "Add Text",
+    "addComment": "Add Comment",
     "addImage": "Add Image",
     "addWatermark": "Watermark",
     "addPageNumbers": "Page Numbers",
@@ -195,7 +196,15 @@
     "fitPage": "Fit Page",
     "prevPage": "Previous Page",
     "nextPage": "Next Page",
-    "pages": "Pages"
+    "pages": "Pages",
+    "writeComment": "Comment Text",
+    "writeCommentPlaceholder": "Write your comment...",
+    "clickToPlaceComment": "Click anywhere on the page to place the comment.",
+    "editComment": "Edit",
+    "deleteComment": "Delete",
+    "commentAdded": "Comment added",
+    "commentUpdated": "Comment updated",
+    "commentDeleted": "Comment deleted"
   },
   "pricing": {
     "title": "Simple, Transparent Pricing",
@@ -313,6 +322,7 @@
     "rotatePdf": "Rotate PDF",
     "editPdf": "Edit PDF",
     "annotatePdf": "Annotate PDF",
+    "annotatePdfDescription": "Add comments, highlights, and annotations to your PDF. Click below to open the editor with comment tools ready.",
     "pageNumbers": "Page Numbers",
     "cropPdf": "Crop PDF",
     "watermark": "Watermark",

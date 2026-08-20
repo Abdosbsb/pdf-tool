@@ -180,6 +180,7 @@
   },
   "editor": {
     "addText": "إضافة نص",
+    "addComment": "إضافة تعليق",
     "addImage": "إضافة صورة",
     "addWatermark": "علامة مائية",
     "addPageNumbers": "ترقيم الصفحات",
@@ -195,7 +196,15 @@
     "fitPage": "ملائمة الصفحة",
     "prevPage": "الصفحة السابقة",
     "nextPage": "الصفحة التالية",
-    "pages": "الصفحات"
+    "pages": "الصفحات",
+    "writeComment": "نص التعليق",
+    "writeCommentPlaceholder": "اكتب تعليقك...",
+    "clickToPlaceComment": "انقر في أي مكان على الصفحة لوضع التعليق.",
+    "editComment": "تعديل",
+    "deleteComment": "حذف",
+    "commentAdded": "تمت إضافة التعليق",
+    "commentUpdated": "تم تحديث التعليق",
+    "commentDeleted": "تم حذف التعليق"
   },
   "pricing": {
     "title": "أسعار بسيطة وشفافة",
@@ -313,6 +322,7 @@
     "rotatePdf": "تدوير PDF",
     "editPdf": "تحرير PDF",
     "annotatePdf": "تعليقات PDF",
+    "annotatePdfDescription": "أضف تعليقات وتمييزات وتعليقات توضيحية إلى ملف PDF الخاص بك. انقر أدناه لفتح المحرر مع أدوات التعليق جاهزة.",
     "pageNumbers": "ترقيم الصفحات",
     "cropPdf": "قص PDF",
     "watermark": "علامة مائية",
