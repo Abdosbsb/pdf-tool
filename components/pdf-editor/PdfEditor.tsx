@@ -2,7 +2,6 @@
 
 import { useReducer, useState, useCallback, useEffect, useRef } from "react";
 import { PDFDocument, rgb, StandardFonts, degrees } from "pdf-lib";
-import { useLanguage } from "@/context/LanguageContext";
 import { editorReducer } from "@/lib/pdf-editor/reducer";
 import type { Annotation, EditorState } from "@/lib/pdf-editor/types";
 import { loadPdf, type PdfPageInfo } from "@/lib/pdf-editor/pdf-renderer";
@@ -24,7 +23,6 @@ function generateId() {
 }
 
 export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorProps) {
-  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pageInfos, setPageInfos] = useState<PdfPageInfo[]>([]);
@@ -44,6 +42,7 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
     annotations: [],
     history: [[]],
     historyIndex: 0,
+    selectedAnnotationId: null,
   } satisfies EditorState);
 
   const [toolOptions, setToolOptions] = useState<Record<string, unknown>>({
@@ -67,6 +66,33 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
   useEffect(() => {
     document.title = `${fileName} - PDFCraft Editor`;
   }, [fileName]);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        dispatch({ type: "UNDO" });
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
+        e.preventDefault();
+        dispatch({ type: "REDO" });
+      } else if (e.key === "Delete" || e.key === "Backspace") {
+        if (state.selectedAnnotationId) {
+          e.preventDefault();
+          dispatch({ type: "REMOVE_ANNOTATION", payload: state.selectedAnnotationId });
+          dispatch({ type: "SELECT_ANNOTATION", payload: null });
+        }
+      } else if (e.key === "Escape") {
+        dispatch({ type: "SELECT_ANNOTATION", payload: null });
+        dispatch({ type: "SET_TOOL", payload: "" });
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [state.selectedAnnotationId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,9 +125,39 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
 
   const handleToolSelect = useCallback(
     (tool: string) => {
-      dispatch({ type: "SET_TOOL", payload: state.activeTool === tool ? "" : tool });
+      const nextTool = state.activeTool === tool ? "" : tool;
+      dispatch({ type: "SET_TOOL", payload: nextTool });
+      dispatch({ type: "SELECT_ANNOTATION", payload: null });
+
+      if (nextTool && nextTool !== "comment") {
+        const pageInfo = pageInfos.find((p) => p.pageNumber === state.currentPage);
+        const pageW = pageInfo ? pageInfo.width : 595;
+        const pageH = pageInfo ? pageInfo.height : 842;
+
+        const annotation: Annotation = {
+          id: generateId(),
+          type: nextTool as Annotation["type"],
+          pageNumber: state.currentPage,
+          x: pageW / 2,
+          y: pageH / 2,
+          content: (toolOptions.text as string) || undefined,
+          fontSize: (toolOptions.fontSize as number) || undefined,
+          color: (toolOptions.color as string) || undefined,
+          opacity: (toolOptions.opacity as number) || undefined,
+          rotation: (toolOptions.rotation as number) || undefined,
+          width: (toolOptions.width as number) || 200,
+          height: nextTool === "highlight" ? 30 : undefined,
+        };
+
+        if (annotation.type === "pageNumber") {
+          annotation.content = String(state.currentPage);
+        }
+
+        dispatch({ type: "ADD_ANNOTATION", payload: annotation });
+        dispatch({ type: "SELECT_ANNOTATION", payload: annotation.id });
+      }
     },
-    [state.activeTool]
+    [state.activeTool, state.currentPage, pageInfos, toolOptions]
   );
 
   const handlePageSelect = useCallback(
@@ -341,35 +397,17 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
     }
   }, [state.annotations, state.fileName, pageInfos, toolOptions.position]);
 
-  const handleApplyTool = useCallback(() => {
-    if (!state.activeTool) return;
-    if (state.activeTool === "comment") return;
+  const handleAnnotationSelect = useCallback((id: string | null) => {
+    dispatch({ type: "SELECT_ANNOTATION", payload: id });
+  }, []);
 
-    const pageInfo = pageInfos.find((p) => p.pageNumber === state.currentPage);
-    const pageW = pageInfo ? pageInfo.width : 595;
-    const pageH = pageInfo ? pageInfo.height : 842;
+  const handleAnnotationDrag = useCallback((id: string, x: number, y: number) => {
+    dispatch({ type: "UPDATE_ANNOTATION", payload: { id, changes: { x, y } } });
+  }, []);
 
-    const annotation: Annotation = {
-      id: generateId(),
-      type: state.activeTool as Annotation["type"],
-      pageNumber: state.currentPage,
-      x: pageW / 2,
-      y: pageH / 2,
-      content: (toolOptions.text as string) || undefined,
-      fontSize: (toolOptions.fontSize as number) || undefined,
-      color: (toolOptions.color as string) || undefined,
-      opacity: (toolOptions.opacity as number) || undefined,
-      rotation: (toolOptions.rotation as number) || undefined,
-      width: (toolOptions.width as number) || 200,
-      height: (toolOptions.type === "highlight" ? 30 : undefined) as number | undefined,
-    };
-
-    if (annotation.type === "pageNumber") {
-      annotation.content = String(state.currentPage);
-    }
-
-    dispatch({ type: "ADD_ANNOTATION", payload: annotation });
-  }, [state.activeTool, state.currentPage, pageInfos, toolOptions]);
+  const handleAnnotationResize = useCallback((id: string, width: number, height: number) => {
+    dispatch({ type: "UPDATE_ANNOTATION", payload: { id, changes: { width, height } } });
+  }, []);
 
   const handleCommentPlace = useCallback(
     (x: number, y: number) => {
@@ -419,10 +457,6 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
   }, [resultUrl]);
 
   const currentPageInfo = pageInfos.find((p) => p.pageNumber === state.currentPage);
-
-  const toolLabel = state.activeTool === "comment"
-    ? t("editor.addComment")
-    : t(`editor.${state.activeTool === "text" ? "addText" : state.activeTool === "image" ? "addImage" : state.activeTool === "watermark" ? "addWatermark" : state.activeTool === "pageNumbers" ? "addPageNumbers" : state.activeTool === "rotate" ? "rotatePages" : state.activeTool === "crop" ? "cropPages" : state.activeTool}`);
 
   if (loading) {
     return (
@@ -525,6 +559,10 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
           zoom={state.zoom}
           annotations={state.annotations}
           activeTool={state.activeTool}
+          selectedAnnotationId={state.selectedAnnotationId}
+          onAnnotationSelect={handleAnnotationSelect}
+          onAnnotationDrag={handleAnnotationDrag}
+          onAnnotationResize={handleAnnotationResize}
           onCommentPlace={handleCommentPlace}
           onCommentUpdate={handleCommentUpdate}
           onCommentDelete={handleCommentDelete}
@@ -540,19 +578,7 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
         />
       </div>
 
-      {state.activeTool && state.activeTool !== "comment" && (
-        <div className="flex items-center justify-center border-t border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-800">
-          <button
-            type="button"
-            onClick={handleApplyTool}
-            className="rounded-lg bg-brand-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
-          >
-            Apply {toolLabel}
-          </button>
-        </div>
-      )}
-
-      {state.annotations.length > 0 && !state.activeTool && (
+      {state.annotations.length > 0 && (
         <div className="flex items-center justify-center border-t border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-800">
           <button
             type="button"

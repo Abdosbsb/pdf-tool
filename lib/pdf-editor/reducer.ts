@@ -77,12 +77,16 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       };
     }
 
+    case "SELECT_ANNOTATION":
+      return { ...state, selectedAnnotationId: action.payload };
+
     case "RESET":
       return {
         ...state,
         annotations: [],
         history: [[]],
         historyIndex: 0,
+        selectedAnnotationId: null,
       };
 
     default:

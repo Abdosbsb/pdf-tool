@@ -12,6 +12,10 @@ interface PagePreviewProps {
   zoom: number;
   annotations: Annotation[];
   activeTool?: string;
+  selectedAnnotationId?: string | null;
+  onAnnotationSelect?: (id: string | null) => void;
+  onAnnotationDrag?: (id: string, x: number, y: number) => void;
+  onAnnotationResize?: (id: string, width: number, height: number) => void;
   onCommentPlace?: (x: number, y: number) => void;
   onCommentUpdate?: (id: string, text: string) => void;
   onCommentDelete?: (id: string) => void;
@@ -20,12 +24,33 @@ interface PagePreviewProps {
   pageHeight: number;
 }
 
+interface DragState {
+  annotationId: string;
+  startMouseX: number;
+  startMouseY: number;
+  startX: number;
+  startY: number;
+}
+
+interface ResizeState {
+  annotationId: string;
+  startMouseX: number;
+  startMouseY: number;
+  startWidth: number;
+  startHeight: number;
+  corner: "nw" | "ne" | "sw" | "se";
+}
+
 export default function PagePreview({
   pageNumber,
   totalPages,
   zoom,
   annotations,
   activeTool,
+  selectedAnnotationId,
+  onAnnotationSelect,
+  onAnnotationDrag,
+  onAnnotationResize,
   onCommentPlace,
   onCommentUpdate,
   onCommentDelete,
@@ -41,6 +66,9 @@ export default function PagePreview({
   const [selectedComment, setSelectedComment] = useState<string | null>(null);
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
+
+  const dragRef = useRef<DragState | null>(null);
+  const resizeRef = useRef<ResizeState | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,18 +124,118 @@ export default function PagePreview({
 
   const handlePageClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (activeTool !== "comment" || !onCommentPlace) return;
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / scale;
-      const y = (e.clientY - rect.top) / scale;
-      onCommentPlace(x, y);
+      if (activeTool === "comment" && onCommentPlace) {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / scale;
+        const y = (e.clientY - rect.top) / scale;
+        onCommentPlace(x, y);
+        return;
+      }
+
+      if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === "CANVAS") {
+        onAnnotationSelect?.(null);
+        setSelectedComment(null);
+        setEditingComment(null);
+      }
     },
-    [activeTool, onCommentPlace, scale]
+    [activeTool, onCommentPlace, onAnnotationSelect, scale]
+  );
+
+  const handleAnnotationMouseDown = useCallback(
+    (e: React.MouseEvent, id: string) => {
+      e.stopPropagation();
+      onAnnotationSelect?.(id);
+      setSelectedComment(null);
+      setEditingComment(null);
+
+      const ann = annotations.find((a) => a.id === id);
+      if (!ann) return;
+
+      dragRef.current = {
+        annotationId: id,
+        startMouseX: e.clientX,
+        startMouseY: e.clientY,
+        startX: ann.x,
+        startY: ann.y,
+      };
+
+      const handleMouseMove = (ev: MouseEvent) => {
+        if (!dragRef.current) return;
+        const dx = (ev.clientX - dragRef.current.startMouseX) / scale;
+        const dy = (ev.clientY - dragRef.current.startMouseY) / scale;
+        onAnnotationDrag?.(
+          dragRef.current.annotationId,
+          dragRef.current.startX + dx,
+          dragRef.current.startY + dy
+        );
+      };
+
+      const handleMouseUp = () => {
+        dragRef.current = null;
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      };
+
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    },
+    [annotations, scale, onAnnotationSelect, onAnnotationDrag]
+  );
+
+  const handleResizeMouseDown = useCallback(
+    (e: React.MouseEvent, id: string, corner: "nw" | "ne" | "sw" | "se") => {
+      e.stopPropagation();
+      const ann = annotations.find((a) => a.id === id);
+      if (!ann) return;
+
+      resizeRef.current = {
+        annotationId: id,
+        startMouseX: e.clientX,
+        startMouseY: e.clientY,
+        startWidth: ann.width || 200,
+        startHeight: ann.height || 30,
+        corner,
+      };
+
+      const handleMouseMove = (ev: MouseEvent) => {
+        if (!resizeRef.current) return;
+        const dx = (ev.clientX - resizeRef.current.startMouseX) / scale;
+        const dy = (ev.clientY - resizeRef.current.startMouseY) / scale;
+
+        let newWidth = resizeRef.current.startWidth;
+        let newHeight = resizeRef.current.startHeight;
+
+        if (resizeRef.current.corner === "ne" || resizeRef.current.corner === "se") {
+          newWidth = Math.max(20, resizeRef.current.startWidth + dx);
+        } else {
+          newWidth = Math.max(20, resizeRef.current.startWidth - dx);
+        }
+
+        if (resizeRef.current.corner === "sw" || resizeRef.current.corner === "se") {
+          newHeight = Math.max(10, resizeRef.current.startHeight + dy);
+        } else {
+          newHeight = Math.max(10, resizeRef.current.startHeight - dy);
+        }
+
+        onAnnotationResize?.(resizeRef.current.annotationId, newWidth, newHeight);
+      };
+
+      const handleMouseUp = () => {
+        resizeRef.current = null;
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      };
+
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    },
+    [annotations, scale, onAnnotationResize]
   );
 
   const handleCommentClick = useCallback(
     (e: React.MouseEvent, id: string) => {
       e.stopPropagation();
+      onAnnotationSelect?.(id);
       if (selectedComment === id) {
         setSelectedComment(null);
       } else {
@@ -115,7 +243,7 @@ export default function PagePreview({
         setEditingComment(null);
       }
     },
-    [selectedComment]
+    [selectedComment, onAnnotationSelect]
   );
 
   const handleEditStart = useCallback(
@@ -139,12 +267,11 @@ export default function PagePreview({
 
   const handleDelete = useCallback(
     (id: string) => {
-      if (onCommentDelete) {
-        onCommentDelete(id);
-      }
+      onCommentDelete?.(id);
+      onAnnotationSelect?.(null);
       setSelectedComment(null);
     },
-    [onCommentDelete]
+    [onCommentDelete, onAnnotationSelect]
   );
 
   const comments = annotations.filter(
@@ -185,70 +312,102 @@ export default function PagePreview({
           </div>
         )}
 
-        {nonCommentAnnotations.map((annotation) => (
-          <div
-            key={annotation.id}
-            className="absolute pointer-events-none"
-            style={{
-              left: annotation.x * scale,
-              top: annotation.y * scale,
-              width: annotation.width ? annotation.width * scale : undefined,
-              height: annotation.height ? annotation.height * scale : undefined,
-              opacity: annotation.opacity ?? 1,
-              transform: annotation.rotation ? `rotate(${annotation.rotation}deg)` : undefined,
-            }}
-          >
-            {annotation.type === "text" && (
-              <p
-                style={{
-                  color: annotation.color || "#000",
-                  fontSize: (annotation.fontSize || 16) * scale,
-                }}
-              >
-                {annotation.content}
-              </p>
-            )}
-            {annotation.type === "watermark" && (
-              <p
-                className="whitespace-nowrap font-bold"
-                style={{
-                  color: annotation.color || "#ccc",
-                  fontSize: (annotation.fontSize || 36) * scale,
-                }}
-              >
-                {annotation.content}
-              </p>
-            )}
-            {annotation.type === "pageNumber" && (
-              <p
-                style={{
-                  color: annotation.color || "#333",
-                  fontSize: (annotation.fontSize || 12) * scale,
-                }}
-              >
-                {pageNumber}
-              </p>
-            )}
-            {annotation.type === "highlight" && (
-              <div
-                className="rounded"
-                style={{
-                  backgroundColor: annotation.color || "#FFD700",
-                  width: "100%",
-                  height: "100%",
-                }}
-              />
-            )}
-            {annotation.type === "image" && (
-              <div className="flex items-center justify-center border border-dashed border-gray-300 bg-gray-50 text-xs text-gray-400">
-                Image
-              </div>
-            )}
-          </div>
-        ))}
+        {nonCommentAnnotations.map((annotation) => {
+          const isSelected = selectedAnnotationId === annotation.id;
+          return (
+            <div
+              key={annotation.id}
+              className="absolute"
+              style={{
+                left: annotation.x * scale,
+                top: annotation.y * scale,
+                width: annotation.width ? annotation.width * scale : undefined,
+                height: annotation.height ? annotation.height * scale : undefined,
+                opacity: annotation.opacity ?? 1,
+                transform: annotation.rotation ? `rotate(${annotation.rotation}deg)` : undefined,
+                zIndex: isSelected ? 20 : 5,
+                cursor: "move",
+                outline: isSelected ? "2px solid #2563eb" : undefined,
+                outlineOffset: "1px",
+              }}
+              onMouseDown={(e) => handleAnnotationMouseDown(e, annotation.id)}
+            >
+              {annotation.type === "text" && (
+                <p
+                  style={{
+                    color: annotation.color || "#000",
+                    fontSize: (annotation.fontSize || 16) * scale,
+                    userSelect: "none",
+                  }}
+                >
+                  {annotation.content}
+                </p>
+              )}
+              {annotation.type === "watermark" && (
+                <p
+                  className="whitespace-nowrap font-bold"
+                  style={{
+                    color: annotation.color || "#ccc",
+                    fontSize: (annotation.fontSize || 36) * scale,
+                    userSelect: "none",
+                  }}
+                >
+                  {annotation.content}
+                </p>
+              )}
+              {annotation.type === "pageNumber" && (
+                <p
+                  style={{
+                    color: annotation.color || "#333",
+                    fontSize: (annotation.fontSize || 12) * scale,
+                    userSelect: "none",
+                  }}
+                >
+                  {pageNumber}
+                </p>
+              )}
+              {annotation.type === "highlight" && (
+                <div
+                  className="rounded"
+                  style={{
+                    backgroundColor: annotation.color || "#FFD700",
+                    width: "100%",
+                    height: "100%",
+                  }}
+                />
+              )}
+              {annotation.type === "image" && (
+                <div className="flex items-center justify-center border border-dashed border-gray-300 bg-gray-50 text-xs text-gray-400">
+                  Image
+                </div>
+              )}
+
+              {isSelected && annotation.width && (
+                <>
+                  <div
+                    className="absolute -left-1 -top-1 h-2.5 w-2.5 cursor-nw-resize rounded-sm bg-blue-500"
+                    onMouseDown={(e) => handleResizeMouseDown(e, annotation.id, "nw")}
+                  />
+                  <div
+                    className="absolute -right-1 -top-1 h-2.5 w-2.5 cursor-ne-resize rounded-sm bg-blue-500"
+                    onMouseDown={(e) => handleResizeMouseDown(e, annotation.id, "ne")}
+                  />
+                  <div
+                    className="absolute -bottom-1 -left-1 h-2.5 w-2.5 cursor-sw-resize rounded-sm bg-blue-500"
+                    onMouseDown={(e) => handleResizeMouseDown(e, annotation.id, "sw")}
+                  />
+                  <div
+                    className="absolute -bottom-1 -right-1 h-2.5 w-2.5 cursor-se-resize rounded-sm bg-blue-500"
+                    onMouseDown={(e) => handleResizeMouseDown(e, annotation.id, "se")}
+                  />
+                </>
+              )}
+            </div>
+          );
+        })}
 
         {comments.map((comment) => {
-          const isSelected = selectedComment === comment.id;
+          const isSelected = selectedAnnotationId === comment.id || selectedComment === comment.id;
           const isEditing = editingComment === comment.id;
           const markerSize = Math.max(20, 24 * scale);
 
@@ -271,6 +430,8 @@ export default function PagePreview({
                   height: markerSize,
                   backgroundColor: comment.color || "#FF0000",
                   fontSize: Math.max(10, 12 * scale),
+                  outline: isSelected ? "2px solid #2563eb" : undefined,
+                  outlineOffset: "2px",
                 }}
                 title={comment.content || ""}
               >
