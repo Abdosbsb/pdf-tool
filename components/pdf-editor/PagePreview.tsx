@@ -18,39 +18,17 @@ interface PagePreviewProps {
   onAnnotationResize?: (id: string, width: number, height: number) => void;
   onAnnotationRotate?: (id: string, rotation: number) => void;
   onAnnotationUpdate?: (id: string, changes: Partial<Annotation>) => void;
+  onAnnotationDelete?: (id: string) => void;
+  onAnnotationDuplicate?: (id: string) => void;
   onDrawComplete?: (annotation: Annotation) => void;
   onCommentPlace?: (x: number, y: number) => void;
   onCommentUpdate?: (id: string, text: string) => void;
   onCommentDelete?: (id: string) => void;
+  onPagePlace?: (x: number, y: number) => void;
   fileId: string;
   pageWidth: number;
   pageHeight: number;
   toolOptions?: Record<string, unknown>;
-}
-
-interface DragState {
-  annotationId: string;
-  startClientX: number;
-  startClientY: number;
-  startX: number;
-  startY: number;
-}
-
-interface ResizeState {
-  annotationId: string;
-  startClientX: number;
-  startClientY: number;
-  startWidth: number;
-  startHeight: number;
-  corner: "nw" | "ne" | "sw" | "se";
-}
-
-interface RotateState {
-  annotationId: string;
-  centerX: number;
-  centerY: number;
-  startAngle: number;
-  startRotation: number;
 }
 
 export default function PagePreview({
@@ -65,10 +43,13 @@ export default function PagePreview({
   onAnnotationResize,
   onAnnotationRotate,
   onAnnotationUpdate,
+  onAnnotationDelete,
+  onAnnotationDuplicate,
   onDrawComplete,
   onCommentPlace,
   onCommentUpdate,
   onCommentDelete,
+  onPagePlace,
   fileId,
   pageWidth,
   pageHeight,
@@ -89,9 +70,9 @@ export default function PagePreview({
   const [drawingPoints, setDrawingPoints] = useState<Array<{ x: number; y: number }>>([]);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  const dragRef = useRef<DragState | null>(null);
-  const resizeRef = useRef<ResizeState | null>(null);
-  const rotateRef = useRef<RotateState | null>(null);
+  const dragRef = useRef<{ annotationId: string; startClientX: number; startClientY: number; startX: number; startY: number } | null>(null);
+  const resizeRef = useRef<{ annotationId: string; startClientX: number; startClientY: number; startWidth: number; startHeight: number; corner: "nw" | "ne" | "sw" | "se" } | null>(null);
+  const rotateRef = useRef<{ annotationId: string; centerX: number; centerY: number; startAngle: number; startRotation: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const pageContainerRef = useRef<HTMLDivElement>(null);
 
@@ -223,6 +204,16 @@ export default function PagePreview({
         return;
       }
 
+      if (activeTool && activeTool !== "comment" && activeTool !== "draw" && onPagePlace) {
+        if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === "CANVAS") {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = (e.clientX - rect.left) / scale;
+          const y = (e.clientY - rect.top) / scale;
+          onPagePlace(x, y);
+          return;
+        }
+      }
+
       if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === "CANVAS") {
         onAnnotationSelect?.(null);
         setSelectedComment(null);
@@ -230,7 +221,7 @@ export default function PagePreview({
         setEditingAnnotation(null);
       }
     },
-    [activeTool, onCommentPlace, onAnnotationSelect, scale]
+    [activeTool, onCommentPlace, onPagePlace, onAnnotationSelect, scale]
   );
 
   const handleAnnotationPointerDown = useCallback(
@@ -239,6 +230,7 @@ export default function PagePreview({
       onAnnotationSelect?.(id);
       setSelectedComment(null);
       setEditingComment(null);
+      setEditingAnnotation(null);
 
       const ann = annotations.find((a) => a.id === id);
       if (!ann) return;
@@ -508,6 +500,94 @@ export default function PagePreview({
     );
   };
 
+  const renderSelectionControls = (annotation: Annotation) => {
+    const isSelected = selectedAnnotationId === annotation.id;
+    if (!isSelected) return null;
+
+    return (
+      <>
+        {annotation.width && (
+          <>
+            <div
+              className="absolute -left-1 -top-1 h-2.5 w-2.5 cursor-nw-resize rounded-sm bg-blue-500"
+              onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "nw")}
+            />
+            <div
+              className="absolute -right-1 -top-1 h-2.5 w-2.5 cursor-ne-resize rounded-sm bg-blue-500"
+              onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "ne")}
+            />
+            <div
+              className="absolute -bottom-1 -left-1 h-2.5 w-2.5 cursor-sw-resize rounded-sm bg-blue-500"
+              onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "sw")}
+            />
+            <div
+              className="absolute -bottom-1 -right-1 h-2.5 w-2.5 cursor-se-resize rounded-sm bg-blue-500"
+              onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "se")}
+            />
+
+            <div
+              className="absolute -top-8 left-1/2 flex h-5 w-5 -translate-x-1/2 cursor-grab items-center justify-center rounded-full border border-gray-300 bg-white text-[10px] text-gray-500 shadow-sm hover:bg-gray-50"
+              onPointerDown={(e) => handleRotatePointerDown(e, annotation.id)}
+              title="Rotate"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </div>
+          </>
+        )}
+
+        <div
+          className="absolute -bottom-11 left-1/2 z-30 flex -translate-x-1/2 gap-0.5 rounded-lg border border-gray-200 bg-white p-0.5 shadow-lg"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {(annotation.type === "text" || annotation.type === "watermark") && (
+            <button
+              type="button"
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                handleAnnotationDoubleClick(e as unknown as React.MouseEvent, annotation.id);
+              }}
+              title={t("editor.editComment")}
+              className="flex h-7 w-7 items-center justify-center rounded text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+          )}
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              onAnnotationDuplicate?.(annotation.id);
+            }}
+            title="Duplicate"
+            className="flex h-7 w-7 items-center justify-center rounded text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              onAnnotationDelete?.(annotation.id);
+            }}
+            title={t("editor.deleteComment")}
+            className="flex h-7 w-7 items-center justify-center rounded text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
+      </>
+    );
+  };
+
   return (
     <div
       ref={containerRef}
@@ -522,7 +602,7 @@ export default function PagePreview({
           height: displayHeight,
           minWidth: displayWidth,
           minHeight: displayHeight,
-          cursor: activeTool === "comment" ? "crosshair" : activeTool === "draw" ? "crosshair" : undefined,
+          cursor: activeTool === "comment" ? "crosshair" : activeTool === "draw" ? "crosshair" : activeTool ? "crosshair" : undefined,
           touchAction: "none",
         }}
         onClick={handlePageClick}
@@ -572,26 +652,7 @@ export default function PagePreview({
                 <div style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
                   {renderDrawPath(annotation)}
                 </div>
-                {isSelected && (
-                  <>
-                    <div
-                      className="absolute -left-1 -top-1 h-2.5 w-2.5 cursor-nw-resize rounded-sm bg-blue-500"
-                      onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "nw")}
-                    />
-                    <div
-                      className="absolute -right-1 -top-1 h-2.5 w-2.5 cursor-ne-resize rounded-sm bg-blue-500"
-                      onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "ne")}
-                    />
-                    <div
-                      className="absolute -bottom-1 -left-1 h-2.5 w-2.5 cursor-sw-resize rounded-sm bg-blue-500"
-                      onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "sw")}
-                    />
-                    <div
-                      className="absolute -bottom-1 -right-1 h-2.5 w-2.5 cursor-se-resize rounded-sm bg-blue-500"
-                      onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "se")}
-                    />
-                  </>
-                )}
+                {renderSelectionControls(annotation)}
               </div>
             );
           }
@@ -659,7 +720,7 @@ export default function PagePreview({
                     userSelect: "none",
                   }}
                 >
-                  {annotation.content}
+                  {annotation.content || "WATERMARK"}
                 </p>
               )}
               {annotation.type === "watermark" && isEditing && (
@@ -712,36 +773,7 @@ export default function PagePreview({
                 </div>
               )}
 
-              {isSelected && annotation.width && (
-                <>
-                  <div
-                    className="absolute -left-1 -top-1 h-2.5 w-2.5 cursor-nw-resize rounded-sm bg-blue-500"
-                    onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "nw")}
-                  />
-                  <div
-                    className="absolute -right-1 -top-1 h-2.5 w-2.5 cursor-ne-resize rounded-sm bg-blue-500"
-                    onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "ne")}
-                  />
-                  <div
-                    className="absolute -bottom-1 -left-1 h-2.5 w-2.5 cursor-sw-resize rounded-sm bg-blue-500"
-                    onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "sw")}
-                  />
-                  <div
-                    className="absolute -bottom-1 -right-1 h-2.5 w-2.5 cursor-se-resize rounded-sm bg-blue-500"
-                    onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "se")}
-                  />
-
-                  <div
-                    className="absolute -top-8 left-1/2 flex h-5 w-5 -translate-x-1/2 cursor-grab items-center justify-center rounded-full border border-gray-300 bg-white text-[10px] text-gray-500 shadow-sm hover:bg-gray-50"
-                    onPointerDown={(e) => handleRotatePointerDown(e, annotation.id)}
-                    title="Rotate"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                  </div>
-                </>
-              )}
+              {renderSelectionControls(annotation)}
             </div>
           );
         })}

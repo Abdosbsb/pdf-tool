@@ -128,36 +128,8 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
       const nextTool = state.activeTool === tool ? "" : tool;
       dispatch({ type: "SET_TOOL", payload: nextTool });
       dispatch({ type: "SELECT_ANNOTATION", payload: null });
-
-      if (nextTool && nextTool !== "comment" && nextTool !== "draw") {
-        const pageInfo = pageInfos.find((p) => p.pageNumber === state.currentPage);
-        const pageW = pageInfo ? pageInfo.width : 595;
-        const pageH = pageInfo ? pageInfo.height : 842;
-
-        const annotation: Annotation = {
-          id: generateId(),
-          type: nextTool as Annotation["type"],
-          pageNumber: state.currentPage,
-          x: pageW / 2,
-          y: pageH / 2,
-          content: (toolOptions.text as string) || undefined,
-          fontSize: (toolOptions.fontSize as number) || undefined,
-          color: (toolOptions.color as string) || undefined,
-          opacity: (toolOptions.opacity as number) || undefined,
-          rotation: (toolOptions.rotation as number) || undefined,
-          width: (toolOptions.width as number) || 200,
-          height: nextTool === "highlight" ? 30 : undefined,
-        };
-
-        if (annotation.type === "pageNumber") {
-          annotation.content = String(state.currentPage);
-        }
-
-        dispatch({ type: "ADD_ANNOTATION", payload: annotation });
-        dispatch({ type: "SELECT_ANNOTATION", payload: annotation.id });
-      }
     },
-    [state.activeTool, state.currentPage, pageInfos, toolOptions]
+    [state.activeTool]
   );
 
   const handlePageSelect = useCallback(
@@ -440,6 +412,56 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
     dispatch({ type: "SELECT_ANNOTATION", payload: annotation.id });
   }, []);
 
+  const handleAnnotationDelete = useCallback((id: string) => {
+    dispatch({ type: "REMOVE_ANNOTATION", payload: id });
+    dispatch({ type: "SELECT_ANNOTATION", payload: null });
+  }, []);
+
+  const handleAnnotationDuplicate = useCallback((id: string) => {
+    const ann = state.annotations.find((a) => a.id === id);
+    if (!ann) return;
+    const duplicate: Annotation = {
+      ...ann,
+      id: generateId(),
+      x: ann.x + 20,
+      y: ann.y + 20,
+    };
+    dispatch({ type: "ADD_ANNOTATION", payload: duplicate });
+    dispatch({ type: "SELECT_ANNOTATION", payload: duplicate.id });
+  }, [state.annotations]);
+
+  const handlePagePlace = useCallback(
+    (x: number, y: number) => {
+      if (!state.activeTool || state.activeTool === "comment" || state.activeTool === "draw") return;
+
+      const annotation: Annotation = {
+        id: generateId(),
+        type: state.activeTool as Annotation["type"],
+        pageNumber: state.currentPage,
+        x,
+        y,
+        content: state.activeTool === "text" ? ((toolOptions.text as string) || "Text") : undefined,
+        fontSize: (toolOptions.fontSize as number) || undefined,
+        color: (toolOptions.color as string) || undefined,
+        opacity: (toolOptions.opacity as number) || undefined,
+        rotation: (toolOptions.rotation as number) || undefined,
+        width: (toolOptions.width as number) || 200,
+        height: state.activeTool === "highlight" ? 30 : undefined,
+      };
+
+      if (annotation.type === "pageNumber") {
+        annotation.content = String(state.currentPage);
+      }
+      if (annotation.type === "watermark") {
+        annotation.content = (toolOptions.text as string) || "WATERMARK";
+      }
+
+      dispatch({ type: "ADD_ANNOTATION", payload: annotation });
+      dispatch({ type: "SELECT_ANNOTATION", payload: annotation.id });
+    },
+    [state.activeTool, state.currentPage, toolOptions]
+  );
+
   const handleCommentPlace = useCallback(
     (x: number, y: number) => {
       const text = (toolOptions.commentText as string) || "";
@@ -596,10 +618,13 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
           onAnnotationResize={handleAnnotationResize}
           onAnnotationRotate={handleAnnotationRotate}
           onAnnotationUpdate={handleAnnotationUpdate}
+          onAnnotationDelete={handleAnnotationDelete}
+          onAnnotationDuplicate={handleAnnotationDuplicate}
           onDrawComplete={handleDrawComplete}
           onCommentPlace={handleCommentPlace}
           onCommentUpdate={handleCommentUpdate}
           onCommentDelete={handleCommentDelete}
+          onPagePlace={handlePagePlace}
           fileId={fileId}
           pageWidth={currentPageInfo?.width || 595}
           pageHeight={currentPageInfo?.height || 842}

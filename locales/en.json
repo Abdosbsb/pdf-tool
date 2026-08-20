@@ -191,6 +191,7 @@
     "rotatePages": "Rotate",
     "cropPages": "Crop",
     "annotate": "Annotate",
+    "draw": "Draw",
     "highlight": "Highlight",
     "undo": "Undo",
     "redo": "Redo",

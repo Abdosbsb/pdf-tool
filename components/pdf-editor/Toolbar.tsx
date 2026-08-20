@@ -27,9 +27,7 @@ const tools = [
   { id: "image", icon: "M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z", label: "editor.addImage" },
   { id: "watermark", icon: "M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z", label: "editor.addWatermark" },
   { id: "pageNumbers", icon: "M7 20l4-16m2 16l4-16M6 9h14M4 15h14", label: "editor.addPageNumbers" },
-  { id: "rotate", icon: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15", label: "editor.rotatePages" },
-  { id: "crop", icon: "M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M10 4H4a2 2 0 00-2 2v2m16-4v4m0 0v4a2 2 0 01-2 2H4", label: "editor.cropPages" },
-  { id: "annotate", icon: "M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z", label: "editor.annotate" },
+  { id: "draw", icon: "M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z", label: "editor.draw" },
   { id: "highlight", icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z", label: "editor.highlight" },
 ];
 
