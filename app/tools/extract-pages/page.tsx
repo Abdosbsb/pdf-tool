@@ -5,113 +5,66 @@ import { useLanguage } from "@/context/LanguageContext";
 import ToolPage, { useToolPage } from "@/components/tools/ToolPage";
 import FileUpload from "@/components/upload/FileUpload";
 import Button from "@/components/ui/Button";
-import Spinner from "@/components/ui/Spinner";
 import { formatFileSize } from "@/lib/file-utils";
-import type { UploadedFile, ApiResponse } from "@/types";
 
 function ExtractPagesContent() {
   const { t } = useLanguage();
   const { state, startProcessing, complete, fail } = useToolPage();
-  const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
   const [pagesToExtract, setPagesToExtract] = useState("");
 
   useEffect(() => {
     document.title = `${t("toolPages.extractPages")} - PDFCraft`;
   }, [t]);
 
-  const handleFileSelected = useCallback(async (selected: File[]) => {
+  const handleFileSelected = useCallback((selected: File[]) => {
     if (selected.length === 0) return;
-
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", selected[0]);
-
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
-      const json: ApiResponse<UploadedFile> = await res.json();
-
-      if (!json.success || !json.data) {
-        throw new Error(json.error?.message || t("upload.error"));
-      }
-
-      setUploadedFile(json.data);
-      setPagesToExtract("");
-    } catch (err) {
-      fail(err instanceof Error ? err.message : t("upload.error"));
-    } finally {
-      setUploading(false);
-    }
-  }, [t, fail]);
+    setFile(selected[0]);
+    setPagesToExtract("");
+  }, []);
 
   const handleExtract = useCallback(async () => {
-    if (!uploadedFile || !pagesToExtract.trim()) return;
+    if (!file || !pagesToExtract.trim()) return;
 
     startProcessing();
 
     try {
-      const parts = pagesToExtract.split(",").map((s) => s.trim()).filter(Boolean);
-      let start = 1;
-      let end = 1;
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("pagesToExtract", pagesToExtract.trim());
 
-      if (parts.length === 1 && parts[0].includes("-")) {
-        const [s, e] = parts[0].split("-").map(Number);
-        start = s;
-        end = e;
-      } else {
-        const nums = parts.map(Number).filter((n) => !isNaN(n)).sort((a, b) => a - b);
-        start = nums[0];
-        end = nums[nums.length - 1];
+      const res = await fetch("/api/tools/split", { method: "POST", body: formData });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error?.message || t("processing.failed"));
       }
 
-      const res = await fetch("/api/tools/split", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileId: uploadedFile.id,
-          options: { pageRange: { start, end } },
-        }),
-      });
-
-      const json: ApiResponse<{ downloadUrl: string; outputs: { downloadUrl: string }[] }> = await res.json();
-
-      if (!json.success || !json.data) {
-        throw new Error(json.error?.message || t("processing.failed"));
-      }
-
-      const downloadUrl = json.data.outputs?.[0]?.downloadUrl || json.data.downloadUrl;
-      complete(downloadUrl, "extracted_pages.pdf");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      complete(url, "extracted_pages.pdf");
     } catch (err) {
       fail(err instanceof Error ? err.message : t("processing.failed"));
     }
-  }, [uploadedFile, pagesToExtract, startProcessing, complete, fail, t]);
+  }, [file, pagesToExtract, startProcessing, complete, fail, t]);
 
   const handleReset = useCallback(() => {
-    setUploadedFile(null);
+    setFile(null);
     setPagesToExtract("");
   }, []);
 
   return (
     <div className="space-y-6">
-      {!uploadedFile && (
+      {!file && (
         <FileUpload
           accept={["pdf"]}
           multiple={false}
           onFilesSelected={handleFileSelected}
-          disabled={uploading || state !== "idle"}
+          disabled={state !== "idle"}
         />
       )}
 
-      {uploading && (
-        <div className="flex items-center gap-3 rounded-lg border border-brand-200 bg-brand-50 p-4 dark:border-brand-800 dark:bg-brand-950">
-          <Spinner size="sm" />
-          <p className="text-sm font-medium text-brand-700 dark:text-brand-300">
-            {t("toolPages.uploading")}
-          </p>
-        </div>
-      )}
-
-      {uploadedFile && state === "idle" && (
+      {file && state === "idle" && (
         <>
           <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
             <div className="flex items-center gap-3 overflow-hidden">
@@ -122,10 +75,10 @@ function ExtractPagesContent() {
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {uploadedFile.name}
+                  {file.name}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {formatFileSize(uploadedFile.size)}
+                  {formatFileSize(file.size)}
                 </p>
               </div>
             </div>

@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStorageProvider } from "@/lib/storage";
 import { getPdfProcessor } from "@/lib/pdf/processor";
-import { createJob, updateJobStatus } from "@/lib/jobs";
-import { createFileMeta, isValidFileType } from "@/lib/file-utils";
-import { ApiResponse } from "@/types";
 
-export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse>> {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const formData = await request.formData();
     const files: File[] = [];
 
     for (const [key, value] of formData.entries()) {
-      if (value instanceof File) {
+      if (key === "files" && value instanceof File) {
         files.push(value);
       }
     }
@@ -23,51 +19,19 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       );
     }
 
-    for (const file of files) {
-      if (!isValidFileType(file, ["image"])) {
-        return NextResponse.json(
-          { success: false, error: { code: "INVALID_TYPE", message: `File ${file.name} is not a valid image type` } },
-          { status: 400 }
-        );
-      }
-    }
-
-    const storage = getStorageProvider();
-    const inputIds: string[] = [];
     const buffers: ArrayBuffer[] = [];
-    let totalInputSize = 0;
-
     for (const file of files) {
-      const buffer = Buffer.from(await file.arrayBuffer());
-      totalInputSize += buffer.length;
-      const meta = createFileMeta(file.name, buffer.length, file.type);
-      await storage.upload(meta.id, buffer, file.type);
-      inputIds.push(meta.id);
-      buffers.push(buffer.buffer);
+      buffers.push(await file.arrayBuffer());
     }
-
-    const job = createJob("jpg-to-pdf", inputIds, totalInputSize);
-    updateJobStatus(job.id, "PROCESSING");
 
     const processor = getPdfProcessor();
     const result = await processor.imageToPdf(buffers);
     const resultBuffer = Buffer.from(result);
 
-    const outputMeta = createFileMeta("converted.pdf", resultBuffer.length, "application/pdf");
-    await storage.upload(outputMeta.id, resultBuffer, "application/pdf");
-
-    updateJobStatus(job.id, "COMPLETED", {
-      outputFile: outputMeta.id,
-      outputSize: resultBuffer.length,
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        jobId: job.id,
-        status: "COMPLETED",
-        downloadUrl: `/api/files/${outputMeta.id}`,
-        outputSize: resultBuffer.length,
+    return new NextResponse(resultBuffer, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": 'attachment; filename="converted.pdf"',
       },
     });
   } catch (error) {

@@ -5,75 +5,38 @@ import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
 import ToolPage, { useToolPage } from "@/components/tools/ToolPage";
 import FileUpload from "@/components/upload/FileUpload";
-import Button from "@/components/ui/Button";
-import Spinner from "@/components/ui/Spinner";
 import { formatFileSize } from "@/lib/file-utils";
-import type { UploadedFile, ApiResponse } from "@/types";
 
 function EditPdfContent() {
   const { t } = useLanguage();
-  const { state, startProcessing, fail } = useToolPage();
-  const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
-  const [rawFile, setRawFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [pdfInfo, setPdfInfo] = useState<{ name: string; size: number; pages?: number } | null>(null);
+  const { state, fail } = useToolPage();
+  const [file, setFile] = useState<File | null>(null);
 
   useEffect(() => {
     document.title = `${t("toolPages.editPdf")} - PDFCraft`;
   }, [t]);
 
-  const handleFileSelected = useCallback(async (selected: File[]) => {
+  const handleFileSelected = useCallback((selected: File[]) => {
     if (selected.length === 0) return;
-
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", selected[0]);
-
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
-      const json: ApiResponse<UploadedFile> = await res.json();
-
-      if (!json.success || !json.data) {
-        throw new Error(json.error?.message || t("upload.error"));
-      }
-
-      setUploadedFile(json.data);
-      setRawFile(selected[0]);
-      setPdfInfo({ name: selected[0].name, size: selected[0].size });
-    } catch (err) {
-      fail(err instanceof Error ? err.message : t("upload.error"));
-    } finally {
-      setUploading(false);
-    }
-  }, [t, fail]);
+    setFile(selected[0]);
+  }, []);
 
   const handleReset = useCallback(() => {
-    setUploadedFile(null);
-    setRawFile(null);
-    setPdfInfo(null);
+    setFile(null);
   }, []);
 
   return (
     <div className="space-y-6">
-      {!uploadedFile && (
+      {!file && (
         <FileUpload
           accept={["pdf"]}
           multiple={false}
           onFilesSelected={handleFileSelected}
-          disabled={uploading || state !== "idle"}
+          disabled={state !== "idle"}
         />
       )}
 
-      {uploading && (
-        <div className="flex items-center gap-3 rounded-lg border border-brand-200 bg-brand-50 p-4 dark:border-brand-800 dark:bg-brand-950">
-          <Spinner size="sm" />
-          <p className="text-sm font-medium text-brand-700 dark:text-brand-300">
-            {t("toolPages.uploading")}
-          </p>
-        </div>
-      )}
-
-      {uploadedFile && state === "idle" && (
+      {file && state === "idle" && (
         <>
           <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
             <div className="flex items-center gap-3 overflow-hidden">
@@ -84,10 +47,10 @@ function EditPdfContent() {
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {uploadedFile.name}
+                  {file.name}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {formatFileSize(uploadedFile.size)}
+                  {formatFileSize(file.size)}
                 </p>
               </div>
             </div>
@@ -102,20 +65,18 @@ function EditPdfContent() {
             </button>
           </div>
 
-          {pdfInfo && (
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
-              <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                {t("toolPages.fileInfo")}
-              </p>
-              <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
-                <p>{t("toolPages.fileName")}: {pdfInfo.name}</p>
-                <p>{t("toolPages.fileSize")}: {formatFileSize(pdfInfo.size)}</p>
-              </div>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+            <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t("toolPages.fileInfo")}
+            </p>
+            <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
+              <p>{t("toolPages.fileName")}: {file.name}</p>
+              <p>{t("toolPages.fileSize")}: {formatFileSize(file.size)}</p>
             </div>
-          )}
+          </div>
 
           <Link
-            href={`/tools/edit-pdf/editor?fileId=${uploadedFile.id}`}
+            href={`/tools/edit-pdf/editor?fileName=${encodeURIComponent(file.name)}`}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-700"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

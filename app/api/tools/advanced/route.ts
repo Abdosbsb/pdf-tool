@@ -5,32 +5,58 @@ import { createJob, updateJobStatus } from "@/lib/jobs";
 import { createFileMeta } from "@/lib/file-utils";
 import { ApiResponse } from "@/types";
 
-type ConversionType = "pdfToWord" | "wordToPdf" | "pdfToExcel" | "excelToPdf" | "pdfToText";
+type ConversionType = "pdfToWord" | "wordToPdf" | "pdfToExcel" | "excelToPdf" | "pdfToText" | "watermark" | "pageNumbers" | "crop";
 
-const EXTENSION_MAP: Record<ConversionType, { input: string; output: string; mime: string }> = {
-  pdfToWord: { input: "pdf", output: "docx", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
-  wordToPdf: { input: "docx", output: "pdf", mime: "application/pdf" },
-  pdfToExcel: { input: "pdf", output: "xlsx", mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
-  excelToPdf: { input: "xlsx", output: "pdf", mime: "application/pdf" },
-  pdfToText: { input: "pdf", output: "txt", mime: "text/plain" },
+const EXTENSION_MAP: Record<string, { output: string; mime: string }> = {
+  pdfToWord: { output: "docx", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+  wordToPdf: { output: "pdf", mime: "application/pdf" },
+  pdfToExcel: { output: "xlsx", mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+  excelToPdf: { output: "pdf", mime: "application/pdf" },
+  pdfToText: { output: "txt", mime: "text/plain" },
+  watermark: { output: "pdf", mime: "application/pdf" },
+  pageNumbers: { output: "pdf", mime: "application/pdf" },
+  crop: { output: "pdf", mime: "application/pdf" },
 };
 
-const TOOL_ID_MAP: Record<ConversionType, string> = {
+const TOOL_ID_MAP: Record<string, string> = {
   pdfToWord: "pdf-to-word",
   wordToPdf: "word-to-pdf",
   pdfToExcel: "pdf-to-excel",
   excelToPdf: "excel-to-pdf",
   pdfToText: "pdf-to-text",
+  watermark: "watermark",
+  pageNumbers: "page-numbers",
+  crop: "crop-pdf",
 };
 
-export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse>> {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const body = await request.json();
-    const { fileId, conversion } = body as { fileId?: string; conversion?: ConversionType };
+    const contentType = request.headers.get("content-type") || "";
+    let fileId: string | undefined;
+    let conversion: ConversionType | undefined;
+    let file: File | null = null;
 
-    if (!fileId) {
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      conversion = (formData.get("conversion") as string) as ConversionType;
+      file = formData.get("file") as File | null;
+    } else {
+      const body = await request.json();
+      fileId = body.fileId;
+      conversion = body.conversion;
+    }
+
+    const storage = getStorageProvider();
+    let buffer: Buffer;
+
+    if (file) {
+      const arrayBuffer = await file.arrayBuffer();
+      buffer = Buffer.from(arrayBuffer);
+    } else if (fileId) {
+      buffer = await storage.download(fileId);
+    } else {
       return NextResponse.json(
-        { success: false, error: { code: "MISSING_FILE", message: "fileId is required" } },
+        { success: false, error: { code: "MISSING_FILE", message: "file is required" } },
         { status: 400 }
       );
     }
@@ -41,44 +67,40 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
           success: false,
           error: {
             code: "INVALID_CONVERSION",
-            message: "conversion must be one of: pdfToWord, wordToPdf, pdfToExcel, excelToPdf, pdfToText",
+            message: "conversion must be one of: pdfToWord, wordToPdf, pdfToExcel, excelToPdf, pdfToText, watermark, pageNumbers, crop",
           },
         },
         { status: 400 }
       );
     }
 
-    const storage = getStorageProvider();
-    const buffer = await storage.download(fileId);
-    const job = createJob(TOOL_ID_MAP[conversion] as Parameters<typeof createJob>[0], [fileId], buffer.length, { conversion });
+    const job = createJob(TOOL_ID_MAP[conversion] as Parameters<typeof createJob>[0], [fileId || "direct"], buffer.length, { conversion });
     updateJobStatus(job.id, "PROCESSING");
 
     const provider = getAdvancedConversionProvider();
 
     let outputBuffer: Buffer;
-    let outputContent: string | Buffer;
 
     switch (conversion) {
       case "pdfToWord":
-        outputContent = await provider.pdfToWord(buffer);
-        outputBuffer = outputContent;
+        outputBuffer = await provider.pdfToWord(buffer);
         break;
       case "wordToPdf":
-        outputContent = await provider.wordToPdf(buffer);
-        outputBuffer = outputContent;
+        outputBuffer = await provider.wordToPdf(buffer);
         break;
       case "pdfToExcel":
-        outputContent = await provider.pdfToExcel(buffer);
-        outputBuffer = outputContent;
+        outputBuffer = await provider.pdfToExcel(buffer);
         break;
       case "excelToPdf":
-        outputContent = await provider.excelToPdf(buffer);
-        outputBuffer = outputContent;
+        outputBuffer = await provider.excelToPdf(buffer);
         break;
-      case "pdfToText":
+      case "pdfToText": {
         const text = await provider.pdfToText(buffer);
         outputBuffer = Buffer.from(text, "utf-8");
         break;
+      }
+      default:
+        throw new Error(`Conversion ${conversion} is not supported via external provider`);
     }
 
     const ext = EXTENSION_MAP[conversion].output;

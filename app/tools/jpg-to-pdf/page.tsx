@@ -1,24 +1,43 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { PDFDocument } from "pdf-lib";
 import { useLanguage } from "@/context/LanguageContext";
 import ToolPage, { useToolPage } from "@/components/tools/ToolPage";
 import FileUpload from "@/components/upload/FileUpload";
 import Button from "@/components/ui/Button";
-import Spinner from "@/components/ui/Spinner";
 import { formatFileSize } from "@/lib/file-utils";
-import type { ApiResponse } from "@/types";
 
-function JpgToPdfContent() {
+function ImageToPdfContent() {
   const { t } = useLanguage();
-  const { state, startProcessing, complete, fail } = useToolPage();
+  const { state, startProcessing, complete, fail, reset } = useToolPage();
   const [files, setFiles] = useState<File[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [previews, setPreviews] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    document.title = `${t("toolPages.convertToPdf")} - PDFCraft`;
+    document.title = `${t("toolPages.imageToPdf")} - PDFCraft`;
   }, [t]);
+
+  // Create previews
+  useEffect(() => {
+    const newPreviews: Record<string, string> = {};
+    files.forEach((file) => {
+      const key = `${file.name}-${file.size}`;
+      if (!previews[key]) {
+        newPreviews[key] = URL.createObjectURL(file);
+      }
+    });
+    if (Object.keys(newPreviews).length > 0) {
+      setPreviews((prev) => ({ ...prev, ...newPreviews }));
+    }
+    // Cleanup old previews
+    const currentKeys = files.map((f) => `${f.name}-${f.size}`);
+    Object.keys(previews).forEach((key) => {
+      if (!currentKeys.includes(key)) {
+        URL.revokeObjectURL(previews[key]);
+      }
+    });
+  }, [files]);
 
   const handleFilesSelected = useCallback((selected: File[]) => {
     setFiles((prev) => [...prev, ...selected]);
@@ -28,41 +47,51 @@ function JpgToPdfContent() {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  const moveFile = useCallback((index: number, direction: -1 | 1) => {
+    setFiles((prev) => {
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[newIndex]] = [next[newIndex], next[index]];
+      return next;
+    });
+  }, []);
+
   const handleConvert = useCallback(async () => {
     if (files.length === 0) return;
-
     startProcessing();
-    setUploading(true);
-    setUploadProgress(0);
 
     try {
-      const formData = new FormData();
-      files.forEach((file) => {
-        formData.append("files", file);
-      });
+      const pdfDoc = await PDFDocument.create();
 
-      setUploadProgress(30);
+      for (const file of files) {
+        const arrayBuffer = await file.arrayBuffer();
+        let image;
+        try {
+          image = await pdfDoc.embedJpg(arrayBuffer);
+        } catch {
+          try {
+            image = await pdfDoc.embedPng(arrayBuffer);
+          } catch {
+            continue;
+          }
+        }
 
-      const res = await fetch("/api/tools/image-to-pdf", {
-        method: "POST",
-        body: formData,
-      });
-
-      setUploadProgress(80);
-
-      const json: ApiResponse<{ downloadUrl: string }> = await res.json();
-
-      if (!json.success || !json.data) {
-        throw new Error(json.error?.message || t("processing.failed"));
+        const page = pdfDoc.addPage([image.width, image.height]);
+        page.drawImage(image, {
+          x: 0,
+          y: 0,
+          width: image.width,
+          height: image.height,
+        });
       }
 
-      setUploadProgress(100);
-      complete(json.data.downloadUrl, "converted.pdf");
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      complete(url, "converted.pdf");
     } catch (err) {
       fail(err instanceof Error ? err.message : t("processing.failed"));
-    } finally {
-      setUploading(false);
-      setUploadProgress(0);
     }
   }, [files, startProcessing, complete, fail, t]);
 
@@ -72,7 +101,7 @@ function JpgToPdfContent() {
         accept={["image/jpeg", "image/png", "image/jpg"]}
         multiple
         onFilesSelected={handleFilesSelected}
-        disabled={uploading || state !== "idle"}
+        disabled={state !== "idle"}
       />
 
       <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -82,37 +111,64 @@ function JpgToPdfContent() {
       {files.length > 0 && state === "idle" && (
         <>
           <ul className="space-y-2">
-            {files.map((file, i) => (
-              <li
-                key={`${file.name}-${i}`}
-                className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800"
-              >
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-                    </svg>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {file.name}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {formatFileSize(file.size)}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeFile(i)}
-                  className="ml-3 shrink-0 rounded-md p-1.5 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900 dark:hover:text-red-400"
+            {files.map((file, i) => {
+              const key = `${file.name}-${file.size}`;
+              return (
+                <li
+                  key={key}
+                  className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </li>
-            ))}
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    {previews[key] && (
+                      <img
+                        src={previews[key]}
+                        alt={file.name}
+                        className="h-10 w-10 shrink-0 rounded object-cover"
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {file.name}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {formatFileSize(file.size)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => moveFile(i, -1)}
+                      disabled={i === 0}
+                      className="rounded p-1.5 text-gray-400 hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-gray-700"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveFile(i, 1)}
+                      disabled={i === files.length - 1}
+                      className="rounded p-1.5 text-gray-400 hover:bg-gray-100 disabled:opacity-30 dark:hover:bg-gray-700"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="rounded p-1.5 text-gray-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
 
           <Button
@@ -133,7 +189,7 @@ function JpgToPdfContent() {
 export default function JpgToPdfPage() {
   return (
     <ToolPage toolId="jpg-to-pdf">
-      <JpgToPdfContent />
+      <ImageToPdfContent />
     </ToolPage>
   );
 }

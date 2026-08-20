@@ -233,6 +233,15 @@ export const TOOLS: ToolMeta[] = [
     acceptsInput: ["pdf"],
     outputType: "application/pdf",
   },
+  {
+    id: "scan-to-pdf",
+    category: "convert",
+    nameKey: "tools.convert.scanToPdf.title",
+    descriptionKey: "tools.convert.scanToPdf.description",
+    href: "/tools/scan-to-pdf",
+    icon: "scan",
+    outputType: "application/pdf",
+  },
 ];
 
 export const TOOL_CATEGORIES = [

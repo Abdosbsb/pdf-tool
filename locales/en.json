@@ -9,7 +9,10 @@
     "pricing": "Pricing",
     "about": "About",
     "login": "Login",
-    "getStarted": "Get Started"
+    "getStarted": "Get Started",
+    "blog": "Blog",
+    "contact": "Contact",
+    "help": "Help"
   },
   "hero": {
     "title": "Everything You Need to Work With PDFs",
@@ -101,6 +104,10 @@
         "title": "Excel to PDF",
         "description": "Convert Excel spreadsheets to PDF files.",
         "requiresProvider": true
+      },
+      "scanToPdf": {
+        "title": "Scan to PDF",
+        "description": "Use your camera to scan documents and create a PDF."
       }
     },
     "edit": {
@@ -232,7 +239,10 @@
     "secure": "Secure by Design",
     "secureDescription": "Your files are encrypted in transit and automatically deleted after processing.",
     "easyToUse": "Easy to Use",
-    "easyToUseDescription": "A clean, intuitive interface that requires no learning curve."
+    "easyToUseDescription": "A clean, intuitive interface that requires no learning curve.",
+    "blog": "Blog",
+    "contact": "Contact",
+    "helpCenter": "Help Center"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -274,7 +284,10 @@
     "noResults": "No results found",
     "notFound": "Page Not Found",
     "notFoundDescription": "The page you're looking for doesn't exist or has been moved.",
-    "backToHome": "Back to Home"
+    "backToHome": "Back to Home",
+    "submit": "Submit",
+    "email": "Email",
+    "message": "Message"
   },
   "toolPages": {
     "uploadHint": "Upload your files to get started",
@@ -368,7 +381,17 @@
     "addShapes": "Add Shapes",
     "removeMetadata": "Remove Metadata",
     "removeMetadataDescription": "Remove all metadata from your PDF file including author, title, keywords, and other properties.",
-    "removeMetadataHint": "This will strip all metadata fields from the document while keeping the content intact."
+    "removeMetadataHint": "This will strip all metadata fields from the document while keeping the content intact.",
+    "scanToPdf": "Scan to PDF",
+    "startCamera": "Start Camera",
+    "stopCamera": "Stop Camera",
+    "capture": "Capture",
+    "cameraPermissionDenied": "Camera access was denied. Please allow camera permissions in your browser settings.",
+    "cameraUnavailable": "No camera found. Please connect a camera and try again.",
+    "cameraError": "Unable to access camera. Please check your device settings.",
+    "tryAgain": "Try Again",
+    "createPdf": "Create PDF",
+    "imageToPdf": "Image to PDF"
   },
   "footer": {
     "description": "Professional PDF tools for everyone. Fast, secure, and easy to use.",

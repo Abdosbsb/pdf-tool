@@ -1,49 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStorageProvider } from "@/lib/storage";
 import { getPdfProcessor } from "@/lib/pdf/processor";
-import { createJob, updateJobStatus } from "@/lib/jobs";
-import { createFileMeta } from "@/lib/file-utils";
-import { ApiResponse } from "@/types";
 
-export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse>> {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const body = await request.json();
-    const { fileId, quality } = body;
+    const formData = await request.formData();
+    const file = formData.get("file") as File | null;
+    const quality = Number(formData.get("quality"));
 
-    if (!fileId) {
+    if (!file) {
       return NextResponse.json(
-        { success: false, error: { code: "MISSING_FILE", message: "fileId is required" } },
+        { success: false, error: { code: "MISSING_FILE", message: "file is required" } },
         { status: 400 }
       );
     }
 
-    const storage = getStorageProvider();
-    const buffer = await storage.download(fileId);
-
-    const job = createJob("compress-pdf", [fileId], buffer.length, { quality });
-    updateJobStatus(job.id, "PROCESSING");
+    const arrayBuffer = await file.arrayBuffer();
+    const inputSize = arrayBuffer.byteLength;
 
     const processor = getPdfProcessor();
-    const buf = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
-    const result = await processor.compress(buf, quality);
+    const result = await processor.compress(arrayBuffer, isNaN(quality) ? undefined : quality);
     const resultBuffer = Buffer.from(result);
 
-    const outputMeta = createFileMeta("compressed.pdf", resultBuffer.length, "application/pdf");
-    await storage.upload(outputMeta.id, resultBuffer, "application/pdf");
-
-    updateJobStatus(job.id, "COMPLETED", {
-      outputFile: outputMeta.id,
-      outputSize: resultBuffer.length,
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        jobId: job.id,
-        status: "COMPLETED",
-        downloadUrl: `/api/files/${outputMeta.id}`,
-        inputSize: buffer.length,
-        outputSize: resultBuffer.length,
+    return new NextResponse(resultBuffer, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": 'attachment; filename="compressed.pdf"',
+        "X-Input-Size": String(inputSize),
+        "X-Output-Size": String(resultBuffer.length),
       },
     });
   } catch (error) {

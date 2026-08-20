@@ -5,18 +5,14 @@ import { useLanguage } from "@/context/LanguageContext";
 import ToolPage, { useToolPage } from "@/components/tools/ToolPage";
 import FileUpload from "@/components/upload/FileUpload";
 import Button from "@/components/ui/Button";
-import Spinner from "@/components/ui/Spinner";
 import { formatFileSize } from "@/lib/file-utils";
-import type { UploadedFile, ApiResponse } from "@/types";
 
 type QualityLevel = "low" | "medium" | "high";
 
 function CompressPdfContent() {
   const { t } = useLanguage();
   const { state, startProcessing, complete, fail } = useToolPage();
-  const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
-  const [rawFile, setRawFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
   const [quality, setQuality] = useState<QualityLevel>("medium");
   const [resultData, setResultData] = useState<{ inputSize: number; outputSize: number } | null>(null);
 
@@ -30,62 +26,44 @@ function CompressPdfContent() {
     high: 0.85,
   };
 
-  const handleFileSelected = useCallback(async (selected: File[]) => {
+  const handleFileSelected = useCallback((selected: File[]) => {
     if (selected.length === 0) return;
-
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", selected[0]);
-
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
-      const json: ApiResponse<UploadedFile> = await res.json();
-
-      if (!json.success || !json.data) {
-        throw new Error(json.error?.message || t("upload.error"));
-      }
-
-      setUploadedFile(json.data);
-      setRawFile(selected[0]);
-      setResultData(null);
-    } catch (err) {
-      fail(err instanceof Error ? err.message : t("upload.error"));
-    } finally {
-      setUploading(false);
-    }
-  }, [t, fail]);
+    setFile(selected[0]);
+    setResultData(null);
+  }, []);
 
   const handleCompress = useCallback(async () => {
-    if (!uploadedFile) return;
+    if (!file) return;
 
     startProcessing();
 
     try {
-      const res = await fetch("/api/tools/compress", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileId: uploadedFile.id,
-          quality: qualityMap[quality],
-        }),
-      });
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("quality", String(qualityMap[quality]));
 
-      const json: ApiResponse<{ downloadUrl: string; inputSize: number; outputSize: number }> = await res.json();
+      const res = await fetch("/api/tools/compress", { method: "POST", body: formData });
 
-      if (!json.success || !json.data) {
-        throw new Error(json.error?.message || t("processing.failed"));
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.error?.message || t("processing.failed"));
       }
 
-      setResultData({ inputSize: json.data.inputSize, outputSize: json.data.outputSize });
-      complete(json.data.downloadUrl, "compressed.pdf");
+      const inputSize = Number(res.headers.get("X-Input-Size")) || file.size;
+      const outputSize = Number(res.headers.get("X-Output-Size")) || 0;
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      setResultData({ inputSize, outputSize });
+      complete(url, "compressed.pdf");
     } catch (err) {
       fail(err instanceof Error ? err.message : t("processing.failed"));
     }
-  }, [uploadedFile, quality, qualityMap, startProcessing, complete, fail, t]);
+  }, [file, quality, qualityMap, startProcessing, complete, fail, t]);
 
   const handleReset = useCallback(() => {
-    setUploadedFile(null);
-    setRawFile(null);
+    setFile(null);
     setQuality("medium");
     setResultData(null);
   }, []);
@@ -96,25 +74,16 @@ function CompressPdfContent() {
 
   return (
     <div className="space-y-6">
-      {!uploadedFile && (
+      {!file && (
         <FileUpload
           accept={["pdf"]}
           multiple={false}
           onFilesSelected={handleFileSelected}
-          disabled={uploading || state !== "idle"}
+          disabled={state !== "idle"}
         />
       )}
 
-      {uploading && (
-        <div className="flex items-center gap-3 rounded-lg border border-brand-200 bg-brand-50 p-4 dark:border-brand-800 dark:bg-brand-950">
-          <Spinner size="sm" />
-          <p className="text-sm font-medium text-brand-700 dark:text-brand-300">
-            {t("toolPages.uploading")}
-          </p>
-        </div>
-      )}
-
-      {uploadedFile && state === "idle" && (
+      {file && state === "idle" && (
         <>
           <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
             <div className="flex items-center gap-3 overflow-hidden">
@@ -125,10 +94,10 @@ function CompressPdfContent() {
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {uploadedFile.name}
+                  {file.name}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {formatFileSize(uploadedFile.size)}
+                  {formatFileSize(file.size)}
                 </p>
               </div>
             </div>

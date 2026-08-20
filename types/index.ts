@@ -21,7 +21,8 @@ export type ToolId =
   | "annotate-pdf"
   | "protect-pdf"
   | "unlock-pdf"
-  | "remove-metadata";
+  | "remove-metadata"
+  | "scan-to-pdf";
 
 export type ToolCategory = "organize" | "optimize" | "convert" | "edit" | "security";
 
