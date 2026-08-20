@@ -121,13 +121,7 @@ export default function FileUpload({
         <input
           ref={inputRef}
           type="file"
-          accept={accept?.map((a) => {
-            if (a === "pdf") return ".pdf";
-            if (a === "image") return ".jpg,.jpeg,.png";
-            if (a === "word") return ".doc,.docx";
-            if (a === "excel") return ".xls,.xlsx";
-            return a;
-          }).join(",")}
+          accept={accept?.join(",")}
           multiple={multiple}
           onChange={handleInputChange}
           className="hidden"

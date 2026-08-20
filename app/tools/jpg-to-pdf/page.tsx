@@ -98,7 +98,7 @@ function ImageToPdfContent() {
   return (
     <div className="space-y-6">
       <FileUpload
-        accept={["image/jpeg", "image/png", "image/jpg"]}
+        accept={["image/jpeg", "image/png"]}
         multiple
         onFilesSelected={handleFilesSelected}
         disabled={state !== "idle"}

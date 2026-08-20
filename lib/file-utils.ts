@@ -33,7 +33,7 @@ export function createFileMeta(name: string, size: number, type: string): FileMe
 export function isValidFileType(file: File, accepts: string[]): boolean {
   const mimeMap: Record<string, string[]> = {
     pdf: ["application/pdf"],
-    image: ["image/jpeg", "image/png", "image/jpg"],
+    image: ["image/jpeg", "image/png"],
     word: [
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -44,9 +44,27 @@ export function isValidFileType(file: File, accepts: string[]): boolean {
     ],
   };
 
+  const extMap: Record<string, string[]> = {
+    pdf: [".pdf"],
+    image: [".jpg", ".jpeg", ".png"],
+    word: [".doc", ".docx"],
+    excel: [".xls", ".xlsx"],
+  };
+
+  const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")).toLowerCase() : "";
+
   for (const accept of accepts) {
     const mimes = mimeMap[accept];
-    if (mimes && mimes.includes(file.type)) return true;
+    if (mimes && file.type && mimes.includes(file.type)) return true;
+
+    if (accept.startsWith("image/") || accept.startsWith("application/")) {
+      if (file.type && file.type === accept) return true;
+      const category = Object.keys(mimeMap).find((k) => mimeMap[k].includes(accept));
+      if (category && extMap[category]?.includes(ext)) return true;
+    }
+
+    const extensions = extMap[accept];
+    if (extensions && extensions.includes(ext)) return true;
   }
   return false;
 }
