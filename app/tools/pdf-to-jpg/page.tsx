@@ -34,16 +34,23 @@ function PdfToJpgContent() {
 
       const res = await fetch("/api/tools/advanced", { method: "POST", body: formData });
 
+      const contentType = res.headers.get("content-type") || "";
       if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        if (err?.error?.code === "PROVIDER_REQUIRED") {
+        let errCode: string | undefined;
+        let errMsg: string | undefined;
+        if (contentType.includes("application/json")) {
+          const err = await res.json();
+          errCode = err?.error?.code;
+          errMsg = err?.error?.message;
+        } else {
+          errMsg = await res.text().catch(() => "");
+        }
+        if (errCode === "PROVIDER_REQUIRED") {
           fail(t("toolPages.providerRequired"));
           return;
         }
-        throw new Error(err?.error?.message || t("processing.failed"));
+        throw new Error(errMsg || t("processing.failed"));
       }
-
-      const contentType = res.headers.get("Content-Type") || "";
       const blob = await res.blob();
 
       if (contentType.includes("application/zip")) {

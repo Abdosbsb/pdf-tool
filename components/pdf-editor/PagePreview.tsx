@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useLanguage } from "@/context/LanguageContext";
+import { renderPageToCanvas } from "@/lib/pdf-editor/pdf-renderer";
 import type { Annotation } from "@/lib/pdf-editor/types";
+import type { PDFDocumentProxy } from "pdfjs-dist";
 
 interface PagePreviewProps {
   pageNumber: number;
@@ -13,6 +15,9 @@ interface PagePreviewProps {
   onCommentPlace?: (x: number, y: number) => void;
   onCommentUpdate?: (id: string, text: string) => void;
   onCommentDelete?: (id: string) => void;
+  fileId: string;
+  pageWidth: number;
+  pageHeight: number;
 }
 
 export default function PagePreview({
@@ -24,15 +29,70 @@ export default function PagePreview({
   onCommentPlace,
   onCommentUpdate,
   onCommentDelete,
+  fileId,
+  pageWidth,
+  pageHeight,
 }: PagePreviewProps) {
   const { t } = useLanguage();
-  const scale = zoom / 100;
-  const pageWidth = 595;
-  const pageHeight = 842;
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const pdfDocRef = useRef<PDFDocumentProxy | null>(null);
+  const [rendering, setRendering] = useState(false);
 
   const [selectedComment, setSelectedComment] = useState<string | null>(null);
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAndRender() {
+      if (!canvasRef.current) return;
+      setRendering(true);
+
+      try {
+        if (!pdfDocRef.current) {
+          const pdfjsLib = await import("pdfjs-dist");
+          let source: string | ArrayBuffer;
+          if (fileId.startsWith("blob:")) {
+            const res = await fetch(fileId);
+            source = await res.arrayBuffer();
+          } else {
+            source = fileId;
+          }
+          const doc = await pdfjsLib.getDocument(
+            typeof source === "string" ? source : { data: source }
+          ).promise;
+          if (cancelled) return;
+          pdfDocRef.current = doc;
+        }
+
+        if (canvasRef.current && pdfDocRef.current && !cancelled) {
+          const scale = zoom / 100;
+          await renderPageToCanvas(pdfDocRef.current, pageNumber, canvasRef.current, scale);
+        }
+      } catch (err) {
+        console.error("PDF render error:", err);
+      } finally {
+        if (!cancelled) setRendering(false);
+      }
+    }
+
+    loadAndRender();
+    return () => { cancelled = true; };
+  }, [pageNumber, zoom, fileId]);
+
+  useEffect(() => {
+    return () => {
+      if (pdfDocRef.current) {
+        pdfDocRef.current.destroy();
+        pdfDocRef.current = null;
+      }
+    };
+  }, []);
+
+  const scale = zoom / 100;
+  const displayWidth = pageWidth * scale;
+  const displayHeight = pageHeight * scale;
 
   const handlePageClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -91,104 +151,101 @@ export default function PagePreview({
     (a) => a.type === "comment" && a.pageNumber === pageNumber
   );
 
+  const nonCommentAnnotations = annotations.filter(
+    (a) => a.pageNumber === pageNumber && a.type !== "comment"
+  );
+
   return (
     <div className="flex flex-1 items-center justify-center overflow-auto bg-gray-200 p-8 dark:bg-gray-900">
       <div
         className="relative bg-white shadow-lg"
         style={{
-          width: pageWidth * scale,
-          height: pageHeight * scale,
-          minWidth: pageWidth * scale,
-          minHeight: pageHeight * scale,
+          width: displayWidth,
+          height: displayHeight,
+          minWidth: displayWidth,
+          minHeight: displayHeight,
           cursor: activeTool === "comment" ? "crosshair" : undefined,
         }}
         onClick={handlePageClick}
       >
-        <div className="flex h-full w-full items-center justify-center border border-gray-100">
-          <div className="text-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="mx-auto mb-3 text-gray-200 dark:text-gray-700"
-              style={{ width: 48 * scale, height: 48 * scale }}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={1}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <p className="text-gray-400 dark:text-gray-500" style={{ fontSize: Math.max(10, 14 * scale) }}>
-              Page {pageNumber} of {totalPages}
-            </p>
-            <p className="text-gray-300 dark:text-gray-600" style={{ fontSize: Math.max(8, 11 * scale) }}>
-              {Math.round(zoom)}% zoom
-            </p>
-          </div>
-        </div>
+        <canvas
+          ref={canvasRef}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+          }}
+        />
 
-        {annotations
-          .filter((a) => a.pageNumber === pageNumber && a.type !== "comment")
-          .map((annotation) => (
-            <div
-              key={annotation.id}
-              className="absolute pointer-events-none"
-              style={{
-                left: annotation.x * scale,
-                top: annotation.y * scale,
-                width: annotation.width ? annotation.width * scale : undefined,
-                height: annotation.height ? annotation.height * scale : undefined,
-                opacity: annotation.opacity ?? 1,
-                transform: annotation.rotation ? `rotate(${annotation.rotation}deg)` : undefined,
-              }}
-            >
-              {annotation.type === "text" && (
-                <p
-                  style={{
-                    color: annotation.color || "#000",
-                    fontSize: (annotation.fontSize || 16) * scale,
-                  }}
-                >
-                  {annotation.content}
-                </p>
-              )}
-              {annotation.type === "watermark" && (
-                <p
-                  className="whitespace-nowrap font-bold"
-                  style={{
-                    color: annotation.color || "#ccc",
-                    fontSize: (annotation.fontSize || 36) * scale,
-                  }}
-                >
-                  {annotation.content}
-                </p>
-              )}
-              {annotation.type === "pageNumber" && (
-                <p
-                  style={{
-                    color: annotation.color || "#333",
-                    fontSize: (annotation.fontSize || 12) * scale,
-                  }}
-                >
-                  {pageNumber}
-                </p>
-              )}
-              {annotation.type === "highlight" && (
-                <div
-                  className="rounded"
-                  style={{
-                    backgroundColor: annotation.color || "#FFD700",
-                    width: "100%",
-                    height: "100%",
-                  }}
-                />
-              )}
-              {annotation.type === "image" && (
-                <div className="flex items-center justify-center border border-dashed border-gray-300 bg-gray-50 text-xs text-gray-400">
-                  Image
-                </div>
-              )}
-            </div>
-          ))}
+        {rendering && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/70 dark:bg-gray-900/70">
+            <div className="text-sm text-gray-500">Rendering...</div>
+          </div>
+        )}
+
+        {nonCommentAnnotations.map((annotation) => (
+          <div
+            key={annotation.id}
+            className="absolute pointer-events-none"
+            style={{
+              left: annotation.x * scale,
+              top: annotation.y * scale,
+              width: annotation.width ? annotation.width * scale : undefined,
+              height: annotation.height ? annotation.height * scale : undefined,
+              opacity: annotation.opacity ?? 1,
+              transform: annotation.rotation ? `rotate(${annotation.rotation}deg)` : undefined,
+            }}
+          >
+            {annotation.type === "text" && (
+              <p
+                style={{
+                  color: annotation.color || "#000",
+                  fontSize: (annotation.fontSize || 16) * scale,
+                }}
+              >
+                {annotation.content}
+              </p>
+            )}
+            {annotation.type === "watermark" && (
+              <p
+                className="whitespace-nowrap font-bold"
+                style={{
+                  color: annotation.color || "#ccc",
+                  fontSize: (annotation.fontSize || 36) * scale,
+                }}
+              >
+                {annotation.content}
+              </p>
+            )}
+            {annotation.type === "pageNumber" && (
+              <p
+                style={{
+                  color: annotation.color || "#333",
+                  fontSize: (annotation.fontSize || 12) * scale,
+                }}
+              >
+                {pageNumber}
+              </p>
+            )}
+            {annotation.type === "highlight" && (
+              <div
+                className="rounded"
+                style={{
+                  backgroundColor: annotation.color || "#FFD700",
+                  width: "100%",
+                  height: "100%",
+                }}
+              />
+            )}
+            {annotation.type === "image" && (
+              <div className="flex items-center justify-center border border-dashed border-gray-300 bg-gray-50 text-xs text-gray-400">
+                Image
+              </div>
+            )}
+          </div>
+        ))}
 
         {comments.map((comment) => {
           const isSelected = selectedComment === comment.id;

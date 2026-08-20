@@ -33,13 +33,40 @@ function WordToPdfContent() {
 
       const res = await fetch("/api/tools/advanced", { method: "POST", body: formData });
 
+      const contentType = res.headers.get("content-type") || "";
       if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        if (err?.error?.code === "PROVIDER_REQUIRED") {
+        let errCode: string | undefined;
+        let errMsg: string | undefined;
+        if (contentType.includes("application/json")) {
+          const err = await res.json();
+          errCode = err?.error?.code;
+          errMsg = err?.error?.message;
+        } else {
+          errMsg = await res.text().catch(() => "");
+        }
+        if (errCode === "PROVIDER_REQUIRED") {
           fail(t("toolPages.providerRequired"));
           return;
         }
-        throw new Error(err?.error?.message || t("processing.failed"));
+        throw new Error(errMsg || t("processing.failed"));
+      }
+
+      if (!contentType.includes("application/pdf") && !contentType.includes("image/") && !contentType.includes("text/plain") && !contentType.includes("application/zip") && !contentType.includes("application/vnd")) {
+        const text = await res.text().catch(() => "");
+        if (text.startsWith("{")) {
+          try {
+            const json = JSON.parse(text);
+            if (json?.error?.code === "PROVIDER_REQUIRED") {
+              fail(t("toolPages.providerRequired"));
+              return;
+            }
+            throw new Error(json?.error?.message || t("processing.failed"));
+          } catch (e) {
+            if (e instanceof SyntaxError) throw new Error(t("processing.failed"));
+            throw e;
+          }
+        }
+        throw new Error(t("processing.failed"));
       }
 
       const blob = await res.blob();
