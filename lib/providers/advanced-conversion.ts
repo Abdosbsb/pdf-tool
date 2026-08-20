@@ -6,49 +6,57 @@ export interface AdvancedConversionProvider {
   pdfToText(input: Buffer, fileName?: string): Promise<string>;
   pdfToJpg(input: Buffer, fileName?: string): Promise<Buffer>;
   pdfToPng(input: Buffer, fileName?: string): Promise<Buffer>;
+
+  startConversion(
+    input: Buffer,
+    inputFormat: string,
+    outputFormat: string,
+    inputFileName: string
+  ): Promise<{ jobId: string }>;
+
+  pollConversion(
+    jobId: string
+  ): Promise<{
+    status: "processing" | "finished" | "error";
+    files?: Array<{ url: string; filename: string; size: number }>;
+    error?: string;
+  }>;
+
+  downloadResultFile(url: string): Promise<Buffer>;
 }
 
 class StubProvider implements AdvancedConversionProvider {
-  async pdfToWord(): Promise<Buffer> {
+  private throwMissing() {
     throw new Error(
       "This conversion requires an external provider. Set PDF_PROVIDER_API_KEY to enable this feature."
     );
   }
 
-  async wordToPdf(): Promise<Buffer> {
-    throw new Error(
-      "This conversion requires an external provider. Set PDF_PROVIDER_API_KEY to enable this feature."
-    );
+  async pdfToWord(): Promise<Buffer> { this.throwMissing(); return Buffer.alloc(0); }
+  async wordToPdf(): Promise<Buffer> { this.throwMissing(); return Buffer.alloc(0); }
+  async pdfToExcel(): Promise<Buffer> { this.throwMissing(); return Buffer.alloc(0); }
+  async excelToPdf(): Promise<Buffer> { this.throwMissing(); return Buffer.alloc(0); }
+  async pdfToText(): Promise<string> { this.throwMissing(); return ""; }
+  async pdfToJpg(): Promise<Buffer> { this.throwMissing(); return Buffer.alloc(0); }
+  async pdfToPng(): Promise<Buffer> { this.throwMissing(); return Buffer.alloc(0); }
+
+  async startConversion(): Promise<{ jobId: string }> {
+    this.throwMissing();
+    return { jobId: "" };
   }
 
-  async pdfToExcel(): Promise<Buffer> {
-    throw new Error(
-      "This conversion requires an external provider. Set PDF_PROVIDER_API_KEY to enable this feature."
-    );
+  async pollConversion(): Promise<{
+    status: "processing" | "finished" | "error";
+    files?: Array<{ url: string; filename: string; size: number }>;
+    error?: string;
+  }> {
+    this.throwMissing();
+    return { status: "error", error: "Not configured" };
   }
 
-  async excelToPdf(): Promise<Buffer> {
-    throw new Error(
-      "This conversion requires an external provider. Set PDF_PROVIDER_API_KEY to enable this feature."
-    );
-  }
-
-  async pdfToText(): Promise<string> {
-    throw new Error(
-      "This conversion requires an external provider. Set PDF_PROVIDER_API_KEY to enable this feature."
-    );
-  }
-
-  async pdfToJpg(): Promise<Buffer> {
-    throw new Error(
-      "This conversion requires an external provider. Set PDF_PROVIDER_API_KEY to enable this feature."
-    );
-  }
-
-  async pdfToPng(): Promise<Buffer> {
-    throw new Error(
-      "This conversion requires an external provider. Set PDF_PROVIDER_API_KEY to enable this feature."
-    );
+  async downloadResultFile(): Promise<Buffer> {
+    this.throwMissing();
+    return Buffer.alloc(0);
   }
 }
 
@@ -74,8 +82,6 @@ crc32.table = (() => {
 })();
 
 const CC_API_BASE = "https://api.cloudconvert.com/v2";
-const POLL_INTERVAL_MS = 2000;
-const MAX_POLL_DURATION_MS = 240_000;
 
 interface CCTask {
   id: string;
@@ -125,7 +131,7 @@ async function ccFetch(path: string, options: RequestInit = {}): Promise<Respons
   return res;
 }
 
-async function createJob(
+async function createCCJob(
   tasks: Record<string, unknown>
 ): Promise<CCJobResponse> {
   const res = await ccFetch("/jobs", {
@@ -157,7 +163,7 @@ async function createJob(
   return res.json();
 }
 
-async function uploadFile(
+async function uploadFileToCC(
   formUrl: string,
   parameters: Record<string, string | number>,
   buffer: Buffer,
@@ -203,68 +209,17 @@ async function uploadFile(
   }
 }
 
-async function waitForJob(jobId: string): Promise<CCJobResponse> {
-  const startTime = Date.now();
+async function checkJobStatus(jobId: string): Promise<CCJobResponse> {
+  const res = await ccFetch(`/jobs/${jobId}?include=tasks`);
 
-  while (Date.now() - startTime < MAX_POLL_DURATION_MS) {
-    const res = await ccFetch(
-      `/jobs/${jobId}?include=tasks`
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(
+      body?.message || `Failed to check job status (HTTP ${res.status})`
     );
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      throw new Error(
-        body?.message || `Failed to check job status (HTTP ${res.status})`
-      );
-    }
-
-    const job: CCJobResponse = await res.json();
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-
-    if (job.data.tasks) {
-      for (const task of job.data.tasks) {
-        console.log(
-          `[cloudconvert] Job ${jobId} [${elapsed}s] Task "${task.operation}" (id=${task.id}): status=${task.status}` +
-            (task.message ? ` message="${task.message}"` : "") +
-            (task.code ? ` code="${task.code}"` : "")
-        );
-        if (task.status === "completed" && task.result?.files) {
-          for (const f of task.result.files) {
-            console.log(
-              `[cloudconvert]   -> output: ${f.filename} (${f.size} bytes)`
-            );
-          }
-        }
-      }
-    }
-
-    if (job.data.status === "finished") {
-      console.log(`[cloudconvert] Job ${jobId} finished in ${elapsed}s`);
-      return job;
-    }
-
-    if (job.data.status === "error") {
-      const failedTask = job.data.tasks?.find(
-        (t) => t.status === "error"
-      );
-      const taskMsg = failedTask?.message || failedTask?.code;
-      const taskDetail = failedTask
-        ? `[task "${failedTask.operation}" id=${failedTask.id}]`
-        : "[no failed task found]";
-      console.error(
-        `[cloudconvert] Job ${jobId} FAILED after ${elapsed}s ${taskDetail}: ${taskMsg || "unknown error"}`
-      );
-      throw new Error(
-        taskMsg || "CloudConvert conversion failed"
-      );
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
   }
 
-  throw new Error(
-    "CloudConvert conversion timed out. The file may be too large or the conversion too complex."
-  );
+  return res.json();
 }
 
 async function downloadFile(url: string): Promise<Buffer> {
@@ -279,17 +234,17 @@ async function downloadFile(url: string): Promise<Buffer> {
 }
 
 class CloudConvertProvider implements AdvancedConversionProvider {
-  private async convert(
+  async startConversion(
     input: Buffer,
     inputFormat: string,
     outputFormat: string,
     inputFileName: string
-  ): Promise<Buffer> {
+  ): Promise<{ jobId: string }> {
     console.log(
       `[cloudconvert] Starting conversion: ${inputFormat} → ${outputFormat}, file: ${inputFileName}, size: ${input.length} bytes`
     );
 
-    const job = await createJob({
+    const job = await createCCJob({
       "import-file": {
         operation: "import/upload",
       },
@@ -321,119 +276,94 @@ class CloudConvertProvider implements AdvancedConversionProvider {
     }
 
     console.log(`[cloudconvert] Uploading file to CloudConvert...`);
-    await uploadFile(
+    await uploadFileToCC(
       importTask.result.form.url,
       importTask.result.form.parameters,
       input,
       inputFileName
     );
-    console.log(`[cloudconvert] Upload complete, waiting for job ${job.data.id}...`);
+    console.log(`[cloudconvert] Upload complete for job ${job.data.id}`);
 
-    const completedJob = await waitForJob(job.data.id);
-
-    const exportTask = completedJob.data.tasks.find(
-      (t) => t.operation === "export/url"
-    );
-    const files = exportTask?.result?.files;
-    if (!files || files.length === 0) {
-      console.error(
-        `[cloudconvert] No output files. Export task status: ${exportTask?.status}, message: ${exportTask?.message}`
-      );
-      throw new Error("CloudConvert produced no output files");
-    }
-
-    console.log(
-      `[cloudconvert] Conversion complete. Output files: ${files.map((f) => `${f.filename} (${f.size} bytes)`).join(", ")}`
-    );
-
-    return downloadFile(files[0].url);
+    return { jobId: job.data.id };
   }
 
-  private async convertMultiple(
-    input: Buffer,
-    inputFormat: string,
-    outputFormat: string,
-    inputFileName: string
-  ): Promise<Array<{ filename: string; buffer: Buffer }>> {
-    console.log(
-      `[cloudconvert] Starting multi-file conversion: ${inputFormat} → ${outputFormat}, file: ${inputFileName}, size: ${input.length} bytes`
-    );
+  async pollConversion(
+    jobId: string
+  ): Promise<{
+    status: "processing" | "finished" | "error";
+    files?: Array<{ url: string; filename: string; size: number }>;
+    error?: string;
+  }> {
+    const job = await checkJobStatus(jobId);
 
-    const job = await createJob({
-      "import-file": {
-        operation: "import/upload",
-      },
-      "convert-file": {
-        operation: "convert",
-        input: "import-file",
-        input_format: inputFormat,
-        output_format: outputFormat,
-      },
-      "export-file": {
-        operation: "export/url",
-        input: "convert-file",
-      },
-    });
-
-    const importTask = job.data.tasks.find(
-      (t) => t.operation === "import/upload"
-    );
-    if (!importTask?.result?.form) {
-      throw new Error("CloudConvert did not provide an upload URL");
+    if (job.data.tasks) {
+      for (const task of job.data.tasks) {
+        console.log(
+          `[cloudconvert] Job ${jobId} Task "${task.operation}" (id=${task.id}): status=${task.status}` +
+            (task.message ? ` message="${task.message}"` : "") +
+            (task.code ? ` code="${task.code}"` : "")
+        );
+        if (task.status === "completed" && task.result?.files) {
+          for (const f of task.result.files) {
+            console.log(
+              `[cloudconvert]   -> output: ${f.filename} (${f.size} bytes)`
+            );
+          }
+        }
+      }
     }
 
-    console.log(`[cloudconvert] Uploading file to CloudConvert...`);
-    await uploadFile(
-      importTask.result.form.url,
-      importTask.result.form.parameters,
-      input,
-      inputFileName
-    );
-    console.log(`[cloudconvert] Upload complete, waiting for job ${job.data.id}...`);
-
-    const completedJob = await waitForJob(job.data.id);
-
-    const exportTask = completedJob.data.tasks.find(
-      (t) => t.operation === "export/url"
-    );
-    const files = exportTask?.result?.files;
-    if (!files || files.length === 0) {
-      throw new Error("CloudConvert produced no output files");
+    if (job.data.status === "finished") {
+      console.log(`[cloudconvert] Job ${jobId} finished`);
+      const exportTask = job.data.tasks.find(
+        (t) => t.operation === "export/url"
+      );
+      const files = exportTask?.result?.files;
+      if (!files || files.length === 0) {
+        return { status: "error", error: "CloudConvert produced no output files" };
+      }
+      return {
+        status: "finished",
+        files: files.map((f) => ({ url: f.url, filename: f.filename, size: f.size })),
+      };
     }
 
-    console.log(
-      `[cloudconvert] Multi-file conversion complete. Output files: ${files.map((f) => `${f.filename} (${f.size} bytes)`).join(", ")}`
-    );
-
-    const results: Array<{ filename: string; buffer: Buffer }> = [];
-    for (const file of files) {
-      const buffer = await downloadFile(file.url);
-      results.push({ filename: file.filename, buffer });
+    if (job.data.status === "error") {
+      const failedTask = job.data.tasks?.find((t) => t.status === "error");
+      const taskMsg = failedTask?.message || failedTask?.code;
+      console.error(
+        `[cloudconvert] Job ${jobId} FAILED: ${taskMsg || "unknown error"}`
+      );
+      return { status: "error", error: taskMsg || "CloudConvert conversion failed" };
     }
 
-    return results;
+    return { status: "processing" };
+  }
+
+  async downloadResultFile(url: string): Promise<Buffer> {
+    return downloadFile(url);
   }
 
   async pdfToWord(input: Buffer, fileName?: string): Promise<Buffer> {
-    return this.convert(input, "pdf", "docx", fileName || "input.pdf");
+    return this.runFullConversion(input, "pdf", "docx", fileName || "input.pdf");
   }
 
   async wordToPdf(input: Buffer, fileName?: string): Promise<Buffer> {
     const ext = this.detectOfficeExtension(fileName, "docx");
-    return this.convert(input, ext, "pdf", fileName || `input.${ext}`);
+    return this.runFullConversion(input, ext, "pdf", fileName || `input.${ext}`);
   }
 
   async pdfToExcel(input: Buffer, fileName?: string): Promise<Buffer> {
-    return this.convert(input, "pdf", "xlsx", fileName || "input.pdf");
+    return this.runFullConversion(input, "pdf", "xlsx", fileName || "input.pdf");
   }
 
   async excelToPdf(input: Buffer, fileName?: string): Promise<Buffer> {
     const ext = this.detectOfficeExtension(fileName, "xlsx");
-    return this.convert(input, ext, "pdf", fileName || `input.${ext}`);
+    return this.runFullConversion(input, ext, "pdf", fileName || `input.${ext}`);
   }
 
   async pdfToText(input: Buffer, fileName?: string): Promise<string> {
-    const buffer = await this.convert(
+    const buffer = await this.runFullConversion(
       input,
       "pdf",
       "txt",
@@ -443,7 +373,7 @@ class CloudConvertProvider implements AdvancedConversionProvider {
   }
 
   async pdfToJpg(input: Buffer, fileName?: string): Promise<Buffer> {
-    const results = await this.convertMultiple(
+    const results = await this.runFullConversionMultiple(
       input,
       "pdf",
       "jpg",
@@ -456,7 +386,7 @@ class CloudConvertProvider implements AdvancedConversionProvider {
   }
 
   async pdfToPng(input: Buffer, fileName?: string): Promise<Buffer> {
-    const results = await this.convertMultiple(
+    const results = await this.runFullConversionMultiple(
       input,
       "pdf",
       "png",
@@ -466,6 +396,61 @@ class CloudConvertProvider implements AdvancedConversionProvider {
       return results[0].buffer;
     }
     return this.packAsZip(results);
+  }
+
+  private async runFullConversion(
+    input: Buffer,
+    inputFormat: string,
+    outputFormat: string,
+    inputFileName: string
+  ): Promise<Buffer> {
+    const { jobId } = await this.startConversion(input, inputFormat, outputFormat, inputFileName);
+
+    const maxPolls = 120;
+    for (let i = 0; i < maxPolls; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const result = await this.pollConversion(jobId);
+      if (result.status === "finished") {
+        if (!result.files || result.files.length === 0) {
+          throw new Error("CloudConvert produced no output files");
+        }
+        return downloadFile(result.files[0].url);
+      }
+      if (result.status === "error") {
+        throw new Error(result.error || "CloudConvert conversion failed");
+      }
+    }
+    throw new Error("CloudConvert conversion timed out");
+  }
+
+  private async runFullConversionMultiple(
+    input: Buffer,
+    inputFormat: string,
+    outputFormat: string,
+    inputFileName: string
+  ): Promise<Array<{ filename: string; buffer: Buffer }>> {
+    const { jobId } = await this.startConversion(input, inputFormat, outputFormat, inputFileName);
+
+    const maxPolls = 120;
+    for (let i = 0; i < maxPolls; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const result = await this.pollConversion(jobId);
+      if (result.status === "finished") {
+        if (!result.files || result.files.length === 0) {
+          throw new Error("CloudConvert produced no output files");
+        }
+        const results: Array<{ filename: string; buffer: Buffer }> = [];
+        for (const file of result.files) {
+          const buffer = await downloadFile(file.url);
+          results.push({ filename: file.filename, buffer });
+        }
+        return results;
+      }
+      if (result.status === "error") {
+        throw new Error(result.error || "CloudConvert conversion failed");
+      }
+    }
+    throw new Error("CloudConvert conversion timed out");
   }
 
   private packAsZip(files: Array<{ filename: string; buffer: Buffer }>): Buffer {

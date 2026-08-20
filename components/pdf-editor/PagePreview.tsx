@@ -16,29 +16,41 @@ interface PagePreviewProps {
   onAnnotationSelect?: (id: string | null) => void;
   onAnnotationDrag?: (id: string, x: number, y: number) => void;
   onAnnotationResize?: (id: string, width: number, height: number) => void;
+  onAnnotationRotate?: (id: string, rotation: number) => void;
+  onAnnotationUpdate?: (id: string, changes: Partial<Annotation>) => void;
+  onDrawComplete?: (annotation: Annotation) => void;
   onCommentPlace?: (x: number, y: number) => void;
   onCommentUpdate?: (id: string, text: string) => void;
   onCommentDelete?: (id: string) => void;
   fileId: string;
   pageWidth: number;
   pageHeight: number;
+  toolOptions?: Record<string, unknown>;
 }
 
 interface DragState {
   annotationId: string;
-  startMouseX: number;
-  startMouseY: number;
+  startClientX: number;
+  startClientY: number;
   startX: number;
   startY: number;
 }
 
 interface ResizeState {
   annotationId: string;
-  startMouseX: number;
-  startMouseY: number;
+  startClientX: number;
+  startClientY: number;
   startWidth: number;
   startHeight: number;
   corner: "nw" | "ne" | "sw" | "se";
+}
+
+interface RotateState {
+  annotationId: string;
+  centerX: number;
+  centerY: number;
+  startAngle: number;
+  startRotation: number;
 }
 
 export default function PagePreview({
@@ -51,12 +63,16 @@ export default function PagePreview({
   onAnnotationSelect,
   onAnnotationDrag,
   onAnnotationResize,
+  onAnnotationRotate,
+  onAnnotationUpdate,
+  onDrawComplete,
   onCommentPlace,
   onCommentUpdate,
   onCommentDelete,
   fileId,
   pageWidth,
   pageHeight,
+  toolOptions,
 }: PagePreviewProps) {
   const { t } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -67,8 +83,17 @@ export default function PagePreview({
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
 
+  const [editingAnnotation, setEditingAnnotation] = useState<string | null>(null);
+  const [editAnnotationText, setEditAnnotationText] = useState("");
+
+  const [drawingPoints, setDrawingPoints] = useState<Array<{ x: number; y: number }>>([]);
+  const [isDrawing, setIsDrawing] = useState(false);
+
   const dragRef = useRef<DragState | null>(null);
   const resizeRef = useRef<ResizeState | null>(null);
+  const rotateRef = useRef<RotateState | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const pageContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,6 +147,72 @@ export default function PagePreview({
   const displayWidth = pageWidth * scale;
   const displayHeight = pageHeight * scale;
 
+  const getPointerPosition = useCallback((e: React.PointerEvent | PointerEvent) => {
+    const target = containerRef.current || (e.target as HTMLElement).closest("[data-page-container]");
+    if (!target) return { x: 0, y: 0 };
+    const rect = target.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) / scale,
+      y: (e.clientY - rect.top) / scale,
+    };
+  }, [scale]);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (activeTool === "draw") {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDrawing(true);
+      const pos = getPointerPosition(e);
+      setDrawingPoints([pos]);
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      return;
+    }
+  }, [activeTool, getPointerPosition]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (isDrawing && activeTool === "draw") {
+      const pos = getPointerPosition(e);
+      setDrawingPoints((prev) => [...prev, pos]);
+    }
+  }, [isDrawing, activeTool, getPointerPosition]);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    if (isDrawing && activeTool === "draw" && drawingPoints.length > 1) {
+      const xs = drawingPoints.map((p) => p.x);
+      const ys = drawingPoints.map((p) => p.y);
+      const minX = Math.min(...xs);
+      const minY = Math.min(...ys);
+      const maxX = Math.max(...xs);
+      const maxY = Math.max(...ys);
+
+      const relativePoints = drawingPoints.map((p) => ({
+        x: p.x - minX,
+        y: p.y - minY,
+      }));
+
+      const annotation: Annotation = {
+        id: `ann_draw_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        type: "draw",
+        pageNumber,
+        x: minX,
+        y: minY,
+        width: maxX - minX || 1,
+        height: maxY - minY || 1,
+        points: relativePoints,
+        color: (toolOptions?.color as string) || "#000000",
+        lineWidth: (toolOptions?.lineWidth as number) || 2,
+      };
+
+      onDrawComplete?.(annotation);
+
+      setIsDrawing(false);
+      setDrawingPoints([]);
+    } else if (isDrawing) {
+      setIsDrawing(false);
+      setDrawingPoints([]);
+    }
+  }, [isDrawing, activeTool, drawingPoints, pageNumber, toolOptions, onDrawComplete]);
+
   const handlePageClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (activeTool === "comment" && onCommentPlace) {
@@ -136,13 +227,14 @@ export default function PagePreview({
         onAnnotationSelect?.(null);
         setSelectedComment(null);
         setEditingComment(null);
+        setEditingAnnotation(null);
       }
     },
     [activeTool, onCommentPlace, onAnnotationSelect, scale]
   );
 
-  const handleAnnotationMouseDown = useCallback(
-    (e: React.MouseEvent, id: string) => {
+  const handleAnnotationPointerDown = useCallback(
+    (e: React.PointerEvent, id: string) => {
       e.stopPropagation();
       onAnnotationSelect?.(id);
       setSelectedComment(null);
@@ -151,18 +243,20 @@ export default function PagePreview({
       const ann = annotations.find((a) => a.id === id);
       if (!ann) return;
 
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+
       dragRef.current = {
         annotationId: id,
-        startMouseX: e.clientX,
-        startMouseY: e.clientY,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
         startX: ann.x,
         startY: ann.y,
       };
 
-      const handleMouseMove = (ev: MouseEvent) => {
+      const handlePointerMove = (ev: PointerEvent) => {
         if (!dragRef.current) return;
-        const dx = (ev.clientX - dragRef.current.startMouseX) / scale;
-        const dy = (ev.clientY - dragRef.current.startMouseY) / scale;
+        const dx = (ev.clientX - dragRef.current.startClientX) / scale;
+        const dy = (ev.clientY - dragRef.current.startClientY) / scale;
         onAnnotationDrag?.(
           dragRef.current.annotationId,
           dragRef.current.startX + dx,
@@ -170,37 +264,37 @@ export default function PagePreview({
         );
       };
 
-      const handleMouseUp = () => {
+      const handlePointerUp = () => {
         dragRef.current = null;
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("pointerup", handlePointerUp);
       };
 
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener("pointermove", handlePointerMove);
+      window.addEventListener("pointerup", handlePointerUp);
     },
     [annotations, scale, onAnnotationSelect, onAnnotationDrag]
   );
 
-  const handleResizeMouseDown = useCallback(
-    (e: React.MouseEvent, id: string, corner: "nw" | "ne" | "sw" | "se") => {
+  const handleResizePointerDown = useCallback(
+    (e: React.PointerEvent, id: string, corner: "nw" | "ne" | "sw" | "se") => {
       e.stopPropagation();
       const ann = annotations.find((a) => a.id === id);
       if (!ann) return;
 
       resizeRef.current = {
         annotationId: id,
-        startMouseX: e.clientX,
-        startMouseY: e.clientY,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
         startWidth: ann.width || 200,
         startHeight: ann.height || 30,
         corner,
       };
 
-      const handleMouseMove = (ev: MouseEvent) => {
+      const handlePointerMove = (ev: PointerEvent) => {
         if (!resizeRef.current) return;
-        const dx = (ev.clientX - resizeRef.current.startMouseX) / scale;
-        const dy = (ev.clientY - resizeRef.current.startMouseY) / scale;
+        const dx = (ev.clientX - resizeRef.current.startClientX) / scale;
+        const dy = (ev.clientY - resizeRef.current.startClientY) / scale;
 
         let newWidth = resizeRef.current.startWidth;
         let newHeight = resizeRef.current.startHeight;
@@ -220,17 +314,86 @@ export default function PagePreview({
         onAnnotationResize?.(resizeRef.current.annotationId, newWidth, newHeight);
       };
 
-      const handleMouseUp = () => {
+      const handlePointerUp = () => {
         resizeRef.current = null;
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("pointerup", handlePointerUp);
       };
 
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
+      window.addEventListener("pointermove", handlePointerMove);
+      window.addEventListener("pointerup", handlePointerUp);
     },
     [annotations, scale, onAnnotationResize]
   );
+
+  const handleRotatePointerDown = useCallback(
+    (e: React.PointerEvent, id: string) => {
+      e.stopPropagation();
+      const ann = annotations.find((a) => a.id === id);
+      if (!ann) return;
+
+      const pageEl = pageContainerRef.current;
+      if (!pageEl) return;
+      const rect = pageEl.getBoundingClientRect();
+      const centerX = ann.x + (ann.width ? ann.width / 2 : 50);
+      const centerY = ann.y + (ann.height ? ann.height / 2 : 20);
+
+      const startAngle = Math.atan2(
+        e.clientY - rect.top - centerY * scale,
+        e.clientX - rect.left - centerX * scale
+      );
+
+      rotateRef.current = {
+        annotationId: id,
+        centerX: ann.x + (ann.width ? ann.width / 2 : 50),
+        centerY: ann.y + (ann.height ? ann.height / 2 : 20),
+        startAngle,
+        startRotation: ann.rotation || 0,
+      };
+
+      const handlePointerMove = (ev: PointerEvent) => {
+        if (!rotateRef.current) return;
+        const currentAngle = Math.atan2(
+          ev.clientY - rect.top - centerY * scale,
+          ev.clientX - rect.left - centerX * scale
+        );
+        const deltaDegrees = ((currentAngle - rotateRef.current.startAngle) * 180) / Math.PI;
+        const newRotation = rotateRef.current.startRotation + deltaDegrees;
+        onAnnotationRotate?.(rotateRef.current.annotationId, newRotation);
+      };
+
+      const handlePointerUp = () => {
+        rotateRef.current = null;
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("pointerup", handlePointerUp);
+      };
+
+      window.addEventListener("pointermove", handlePointerMove);
+      window.addEventListener("pointerup", handlePointerUp);
+    },
+    [annotations, scale, onAnnotationRotate]
+  );
+
+  const handleAnnotationDoubleClick = useCallback(
+    (e: React.MouseEvent, id: string) => {
+      e.stopPropagation();
+      const ann = annotations.find((a) => a.id === id);
+      if (!ann) return;
+      if (ann.type === "text" || ann.type === "watermark") {
+        setEditingAnnotation(id);
+        setEditAnnotationText(ann.content || "");
+      }
+    },
+    [annotations]
+  );
+
+  const handleAnnotationEditSave = useCallback(() => {
+    if (editingAnnotation && onAnnotationUpdate) {
+      onAnnotationUpdate(editingAnnotation, { content: editAnnotationText });
+    }
+    setEditingAnnotation(null);
+    setEditAnnotationText("");
+  }, [editingAnnotation, editAnnotationText, onAnnotationUpdate]);
 
   const handleCommentClick = useCallback(
     (e: React.MouseEvent, id: string) => {
@@ -282,18 +445,90 @@ export default function PagePreview({
     (a) => a.pageNumber === pageNumber && a.type !== "comment"
   );
 
+  const renderDrawPath = (annotation: Annotation) => {
+    if (!annotation.points || annotation.points.length < 2) return null;
+    const pathData = annotation.points
+      .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
+      .join(" ");
+    const maxX = Math.max(...annotation.points.map((p) => p.x));
+    const maxY = Math.max(...annotation.points.map((p) => p.y));
+
+    return (
+      <svg
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: Math.max(maxX + 10, annotation.width || 0),
+          height: Math.max(maxY + 10, annotation.height || 0),
+          pointerEvents: "none",
+          overflow: "visible",
+        }}
+      >
+        <path
+          d={pathData}
+          stroke={annotation.color || "#000000"}
+          strokeWidth={annotation.lineWidth || 2}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  };
+
+  const renderDrawingPreview = () => {
+    if (!isDrawing || drawingPoints.length < 2) return null;
+    const pathData = drawingPoints
+      .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
+      .join(" ");
+
+    return (
+      <svg
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          pointerEvents: "none",
+          zIndex: 30,
+          overflow: "visible",
+        }}
+      >
+        <path
+          d={pathData}
+          stroke={(toolOptions?.color as string) || "#000000"}
+          strokeWidth={(toolOptions?.lineWidth as number) || 2}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  };
+
   return (
-    <div className="flex flex-1 items-center justify-center overflow-auto bg-gray-200 p-8 dark:bg-gray-900">
+    <div
+      ref={containerRef}
+      className="flex flex-1 items-center justify-center overflow-auto bg-gray-200 p-8 dark:bg-gray-900"
+      data-page-container
+    >
       <div
+        ref={pageContainerRef}
         className="relative bg-white shadow-lg"
         style={{
           width: displayWidth,
           height: displayHeight,
           minWidth: displayWidth,
           minHeight: displayHeight,
-          cursor: activeTool === "comment" ? "crosshair" : undefined,
+          cursor: activeTool === "comment" ? "crosshair" : activeTool === "draw" ? "crosshair" : undefined,
+          touchAction: "none",
         }}
         onClick={handlePageClick}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
       >
         <canvas
           ref={canvasRef}
@@ -312,8 +547,55 @@ export default function PagePreview({
           </div>
         )}
 
+        {renderDrawingPreview()}
+
         {nonCommentAnnotations.map((annotation) => {
           const isSelected = selectedAnnotationId === annotation.id;
+          const isEditing = editingAnnotation === annotation.id;
+
+          if (annotation.type === "draw") {
+            return (
+              <div
+                key={annotation.id}
+                className="absolute"
+                style={{
+                  left: annotation.x * scale,
+                  top: annotation.y * scale,
+                  zIndex: isSelected ? 20 : 5,
+                  cursor: "move",
+                  outline: isSelected ? "2px solid #2563eb" : undefined,
+                  outlineOffset: "2px",
+                }}
+                onPointerDown={(e) => handleAnnotationPointerDown(e, annotation.id)}
+                onDoubleClick={(e) => handleAnnotationDoubleClick(e, annotation.id)}
+              >
+                <div style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
+                  {renderDrawPath(annotation)}
+                </div>
+                {isSelected && (
+                  <>
+                    <div
+                      className="absolute -left-1 -top-1 h-2.5 w-2.5 cursor-nw-resize rounded-sm bg-blue-500"
+                      onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "nw")}
+                    />
+                    <div
+                      className="absolute -right-1 -top-1 h-2.5 w-2.5 cursor-ne-resize rounded-sm bg-blue-500"
+                      onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "ne")}
+                    />
+                    <div
+                      className="absolute -bottom-1 -left-1 h-2.5 w-2.5 cursor-sw-resize rounded-sm bg-blue-500"
+                      onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "sw")}
+                    />
+                    <div
+                      className="absolute -bottom-1 -right-1 h-2.5 w-2.5 cursor-se-resize rounded-sm bg-blue-500"
+                      onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "se")}
+                    />
+                  </>
+                )}
+              </div>
+            );
+          }
+
           return (
             <div
               key={annotation.id}
@@ -330,20 +612,45 @@ export default function PagePreview({
                 outline: isSelected ? "2px solid #2563eb" : undefined,
                 outlineOffset: "1px",
               }}
-              onMouseDown={(e) => handleAnnotationMouseDown(e, annotation.id)}
+              onPointerDown={(e) => handleAnnotationPointerDown(e, annotation.id)}
+              onDoubleClick={(e) => handleAnnotationDoubleClick(e, annotation.id)}
             >
-              {annotation.type === "text" && (
+              {annotation.type === "text" && !isEditing && (
                 <p
                   style={{
                     color: annotation.color || "#000",
                     fontSize: (annotation.fontSize || 16) * scale,
                     userSelect: "none",
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  {annotation.content}
+                  {annotation.content || "Text"}
                 </p>
               )}
-              {annotation.type === "watermark" && (
+              {annotation.type === "text" && isEditing && (
+                <input
+                  autoFocus
+                  value={editAnnotationText}
+                  onChange={(e) => setEditAnnotationText(e.target.value)}
+                  onBlur={handleAnnotationEditSave}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAnnotationEditSave();
+                    if (e.key === "Escape") {
+                      setEditingAnnotation(null);
+                      setEditAnnotationText("");
+                    }
+                  }}
+                  className="border border-blue-500 bg-white px-1 py-0.5 outline-none"
+                  style={{
+                    color: annotation.color || "#000",
+                    fontSize: (annotation.fontSize || 16) * scale,
+                    minWidth: 80,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                />
+              )}
+              {annotation.type === "watermark" && !isEditing && (
                 <p
                   className="whitespace-nowrap font-bold"
                   style={{
@@ -354,6 +661,29 @@ export default function PagePreview({
                 >
                   {annotation.content}
                 </p>
+              )}
+              {annotation.type === "watermark" && isEditing && (
+                <input
+                  autoFocus
+                  value={editAnnotationText}
+                  onChange={(e) => setEditAnnotationText(e.target.value)}
+                  onBlur={handleAnnotationEditSave}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAnnotationEditSave();
+                    if (e.key === "Escape") {
+                      setEditingAnnotation(null);
+                      setEditAnnotationText("");
+                    }
+                  }}
+                  className="border border-blue-500 bg-white px-1 py-0.5 font-bold outline-none"
+                  style={{
+                    color: annotation.color || "#000",
+                    fontSize: (annotation.fontSize || 36) * scale,
+                    minWidth: 80,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                />
               )}
               {annotation.type === "pageNumber" && (
                 <p
@@ -386,20 +716,30 @@ export default function PagePreview({
                 <>
                   <div
                     className="absolute -left-1 -top-1 h-2.5 w-2.5 cursor-nw-resize rounded-sm bg-blue-500"
-                    onMouseDown={(e) => handleResizeMouseDown(e, annotation.id, "nw")}
+                    onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "nw")}
                   />
                   <div
                     className="absolute -right-1 -top-1 h-2.5 w-2.5 cursor-ne-resize rounded-sm bg-blue-500"
-                    onMouseDown={(e) => handleResizeMouseDown(e, annotation.id, "ne")}
+                    onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "ne")}
                   />
                   <div
                     className="absolute -bottom-1 -left-1 h-2.5 w-2.5 cursor-sw-resize rounded-sm bg-blue-500"
-                    onMouseDown={(e) => handleResizeMouseDown(e, annotation.id, "sw")}
+                    onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "sw")}
                   />
                   <div
                     className="absolute -bottom-1 -right-1 h-2.5 w-2.5 cursor-se-resize rounded-sm bg-blue-500"
-                    onMouseDown={(e) => handleResizeMouseDown(e, annotation.id, "se")}
+                    onPointerDown={(e) => handleResizePointerDown(e, annotation.id, "se")}
                   />
+
+                  <div
+                    className="absolute -top-8 left-1/2 flex h-5 w-5 -translate-x-1/2 cursor-grab items-center justify-center rounded-full border border-gray-300 bg-white text-[10px] text-gray-500 shadow-sm hover:bg-gray-50"
+                    onPointerDown={(e) => handleRotatePointerDown(e, annotation.id)}
+                    title="Rotate"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </div>
                 </>
               )}
             </div>
@@ -423,7 +763,10 @@ export default function PagePreview({
             >
               <button
                 type="button"
-                onClick={(e) => handleCommentClick(e, comment.id)}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  handleCommentClick(e, comment.id);
+                }}
                 className="flex items-center justify-center rounded-full shadow-md transition-transform hover:scale-110"
                 style={{
                   width: markerSize,

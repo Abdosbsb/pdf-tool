@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStorageProvider } from "@/lib/storage";
 import { getAdvancedConversionProvider } from "@/lib/providers/advanced-conversion";
-import { createJob, updateJobStatus } from "@/lib/jobs";
-import { createFileMeta } from "@/lib/file-utils";
-import { ApiResponse } from "@/types";
 
 type ConversionType =
   | "pdfToWord"
@@ -12,10 +9,7 @@ type ConversionType =
   | "excelToPdf"
   | "pdfToText"
   | "pdfToJpg"
-  | "pdfToPng"
-  | "watermark"
-  | "pageNumbers"
-  | "crop";
+  | "pdfToPng";
 
 const EXTENSION_MAP: Record<string, { output: string; mime: string }> = {
   pdfToWord: {
@@ -31,59 +25,145 @@ const EXTENSION_MAP: Record<string, { output: string; mime: string }> = {
   pdfToText: { output: "txt", mime: "text/plain" },
   pdfToJpg: { output: "jpg", mime: "image/jpeg" },
   pdfToPng: { output: "png", mime: "image/png" },
-  watermark: { output: "pdf", mime: "application/pdf" },
-  pageNumbers: { output: "pdf", mime: "application/pdf" },
-  crop: { output: "pdf", mime: "application/pdf" },
 };
 
-const TOOL_ID_MAP: Record<string, string> = {
-  pdfToWord: "pdf-to-word",
-  wordToPdf: "word-to-pdf",
-  pdfToExcel: "pdf-to-excel",
-  excelToPdf: "excel-to-pdf",
-  pdfToText: "pdf-to-text",
-  pdfToJpg: "pdf-to-jpg",
-  pdfToPng: "pdf-to-png",
-  watermark: "watermark",
-  pageNumbers: "page-numbers",
-  crop: "crop-pdf",
+const FORMAT_MAP: Record<string, { inputFormat: string; outputFormat: string }> = {
+  pdfToWord: { inputFormat: "pdf", outputFormat: "docx" },
+  wordToPdf: { inputFormat: "docx", outputFormat: "pdf" },
+  pdfToExcel: { inputFormat: "pdf", outputFormat: "xlsx" },
+  excelToPdf: { inputFormat: "xlsx", outputFormat: "pdf" },
+  pdfToText: { inputFormat: "pdf", outputFormat: "txt" },
+  pdfToJpg: { inputFormat: "pdf", outputFormat: "jpg" },
+  pdfToPng: { inputFormat: "pdf", outputFormat: "png" },
 };
+
+function detectInputFormat(fileName: string, conversion: string): string {
+  const ext = fileName.split(".").pop()?.toLowerCase() || "";
+  if (conversion === "wordToPdf") {
+    if (ext === "doc") return "doc";
+    return "docx";
+  }
+  if (conversion === "excelToPdf") {
+    if (ext === "xls") return "xls";
+    return "xlsx";
+  }
+  return FORMAT_MAP[conversion]?.inputFormat || "pdf";
+}
+
+function crc32(buf: Buffer): number {
+  let c = 0xffffffff;
+  const table = crc32.table;
+  for (let i = 0; i < buf.length; i++) {
+    c = table[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+  }
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+crc32.table = (() => {
+  const t = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let j = 0; j < 8; j++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    t[i] = c;
+  }
+  return t;
+})();
+
+function packAsZip(files: Array<{ filename: string; buffer: Buffer }>): Buffer {
+  const localHeaders: Buffer[] = [];
+  const centralHeaders: Buffer[] = [];
+  let offset = 0;
+
+  for (const file of files) {
+    const name = Buffer.from(file.filename, "utf-8");
+    const crc = crc32(file.buffer);
+
+    const localHeader = Buffer.alloc(30 + name.length);
+    localHeader.writeUInt32LE(0x04034b50, 0);
+    localHeader.writeUInt16LE(20, 4);
+    localHeader.writeUInt16LE(0, 6);
+    localHeader.writeUInt16LE(0, 8);
+    localHeader.writeUInt16LE(0, 10);
+    localHeader.writeUInt16LE(0, 12);
+    localHeader.writeUInt32LE(crc, 14);
+    localHeader.writeUInt32LE(file.buffer.length, 18);
+    localHeader.writeUInt32LE(file.buffer.length, 22);
+    localHeader.writeUInt16LE(name.length, 26);
+    localHeader.writeUInt16LE(0, 28);
+    name.copy(localHeader, 30);
+
+    const centralHeader = Buffer.alloc(46 + name.length);
+    centralHeader.writeUInt32LE(0x02014b50, 0);
+    centralHeader.writeUInt16LE(20, 4);
+    centralHeader.writeUInt16LE(20, 6);
+    centralHeader.writeUInt16LE(0, 8);
+    centralHeader.writeUInt16LE(0, 10);
+    centralHeader.writeUInt16LE(0, 12);
+    centralHeader.writeUInt16LE(0, 14);
+    centralHeader.writeUInt32LE(crc, 16);
+    centralHeader.writeUInt32LE(file.buffer.length, 20);
+    centralHeader.writeUInt32LE(file.buffer.length, 24);
+    centralHeader.writeUInt16LE(name.length, 28);
+    centralHeader.writeUInt16LE(0, 30);
+    centralHeader.writeUInt16LE(0, 32);
+    centralHeader.writeUInt16LE(0, 34);
+    centralHeader.writeUInt16LE(0, 36);
+    centralHeader.writeUInt32LE(0, 38);
+    centralHeader.writeUInt32LE(offset, 42);
+    name.copy(centralHeader, 46);
+
+    localHeaders.push(localHeader, file.buffer);
+    centralHeaders.push(centralHeader);
+    offset += localHeader.length + file.buffer.length;
+  }
+
+  const centralDirOffset = offset;
+  let centralDirSize = 0;
+  for (const ch of centralHeaders) {
+    centralDirSize += ch.length;
+  }
+
+  const endRecord = Buffer.alloc(22);
+  endRecord.writeUInt32LE(0x06054b50, 0);
+  endRecord.writeUInt16LE(0, 4);
+  endRecord.writeUInt16LE(0, 6);
+  endRecord.writeUInt16LE(files.length, 8);
+  endRecord.writeUInt16LE(files.length, 10);
+  endRecord.writeUInt32LE(centralDirSize, 12);
+  endRecord.writeUInt32LE(centralDirOffset, 16);
+  endRecord.writeUInt16LE(0, 20);
+
+  return Buffer.concat([...localHeaders, ...centralHeaders, endRecord]);
+}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   console.log(
-    "[advanced-conversion] PDF_PROVIDER_API_KEY configured:",
+    "[advanced-conversion] POST - PDF_PROVIDER_API_KEY configured:",
     !!process.env.PDF_PROVIDER_API_KEY
   );
 
   try {
     const contentType = request.headers.get("content-type") || "";
-    let fileId: string | undefined;
-    let conversion: ConversionType | undefined;
     let file: File | null = null;
-    let inputFileName = "input";
+    let conversion: ConversionType | undefined;
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData();
       conversion = (formData.get("conversion") as string) as ConversionType;
       file = formData.get("file") as File | null;
-      if (file) {
-        inputFileName = file.name;
-      }
     } else {
-      const body = await request.json();
-      fileId = body.fileId;
-      conversion = body.conversion;
+      return NextResponse.json(
+        {
+          success: false,
+          error: { code: "INVALID_REQUEST", message: "multipart/form-data required" },
+        },
+        { status: 400 }
+      );
     }
 
-    const storage = getStorageProvider();
-    let buffer: Buffer;
-
-    if (file) {
-      const arrayBuffer = await file.arrayBuffer();
-      buffer = Buffer.from(arrayBuffer);
-    } else if (fileId) {
-      buffer = await storage.download(fileId);
-    } else {
+    if (!file) {
       return NextResponse.json(
         {
           success: false,
@@ -99,70 +179,150 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           success: false,
           error: {
             code: "INVALID_CONVERSION",
-            message:
-              "conversion must be one of: pdfToWord, wordToPdf, pdfToExcel, excelToPdf, pdfToText, pdfToJpg, pdfToPng",
+            message: "conversion must be one of: pdfToWord, wordToPdf, pdfToExcel, excelToPdf, pdfToText, pdfToJpg, pdfToPng",
           },
         },
         { status: 400 }
       );
     }
 
-    const ext = EXTENSION_MAP[conversion].output;
-    const mime = EXTENSION_MAP[conversion].mime;
+    const inputFileName = file.name || "input";
+    const inputFormat = detectInputFormat(inputFileName, conversion);
+    const outputFormat = FORMAT_MAP[conversion].outputFormat;
 
-    const job = createJob(
-      TOOL_ID_MAP[conversion] as Parameters<typeof createJob>[0],
-      [fileId || "direct"],
-      buffer.length,
-      { conversion }
-    );
-    updateJobStatus(job.id, "PROCESSING");
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
     const provider = getAdvancedConversionProvider();
+    const { jobId } = await provider.startConversion(
+      buffer,
+      inputFormat,
+      outputFormat,
+      inputFileName
+    );
 
-    let outputBuffer: Buffer;
+    console.log(
+      `[advanced-conversion] Conversion started: ${conversion}, job: ${jobId}`
+    );
 
-    switch (conversion) {
-      case "pdfToWord":
-        outputBuffer = await provider.pdfToWord(buffer, inputFileName);
-        break;
-      case "wordToPdf":
-        outputBuffer = await provider.wordToPdf(buffer, inputFileName);
-        break;
-      case "pdfToExcel":
-        outputBuffer = await provider.pdfToExcel(buffer, inputFileName);
-        break;
-      case "excelToPdf":
-        outputBuffer = await provider.excelToPdf(buffer, inputFileName);
-        break;
-      case "pdfToText": {
-        const text = await provider.pdfToText(buffer, inputFileName);
-        outputBuffer = Buffer.from(text, "utf-8");
-        break;
-      }
-      case "pdfToJpg":
-        outputBuffer = await provider.pdfToJpg(buffer, inputFileName);
-        break;
-      case "pdfToPng":
-        outputBuffer = await provider.pdfToPng(buffer, inputFileName);
-        break;
-      default:
-        throw new Error(
-          `Conversion ${conversion} is not supported via external provider`
-        );
+    return NextResponse.json({
+      success: true,
+      data: { jobId, conversion },
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to start conversion";
+
+    console.error("[advanced-conversion] POST error:", message);
+    if (error instanceof Error && error.stack) {
+      console.error("[advanced-conversion] Stack:", error.stack);
     }
 
-    const outputMeta = createFileMeta(
-      `converted.${ext}`,
-      outputBuffer.length,
-      mime
-    );
-    await storage.upload(outputMeta.id, outputBuffer, mime);
+    const isAuthError =
+      message.includes("401") ||
+      message.includes("403") ||
+      message.includes("Invalid or unauthorized API key");
+    const isMissingKey =
+      message.includes("PDF_PROVIDER_API_KEY is not configured");
 
-    updateJobStatus(job.id, "COMPLETED", {
-      outputFile: outputMeta.id,
-      outputSize: outputBuffer.length,
-    });
+    if (isAuthError || isMissingKey) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "PROVIDER_REQUIRED",
+            message: isMissingKey
+              ? "PDF conversion service is not configured. Please set PDF_PROVIDER_API_KEY."
+              : "PDF conversion service authentication failed. Please check your API key.",
+          },
+        },
+        { status: 501 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: { code: "CONVERSION_FAILED", message },
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  try {
+    const { searchParams } = new URL(request.url);
+    const jobId = searchParams.get("jobId");
+    const conversion = searchParams.get("conversion") as ConversionType | null;
+
+    if (!jobId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: { code: "MISSING_JOB_ID", message: "jobId query parameter is required" },
+        },
+        { status: 400 }
+      );
+    }
+
+    const provider = getAdvancedConversionProvider();
+    const result = await provider.pollConversion(jobId);
+
+    if (result.status === "processing") {
+      return NextResponse.json({
+        success: true,
+        data: { status: "processing" },
+      });
+    }
+
+    if (result.status === "error") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: { code: "CONVERSION_FAILED", message: result.error || "Conversion failed" },
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!result.files || result.files.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: { code: "NO_OUTPUT", message: "CloudConvert produced no output files" },
+        },
+        { status: 500 }
+      );
+    }
+
+    const ext = conversion ? EXTENSION_MAP[conversion]?.output : "pdf";
+    const mime = conversion ? EXTENSION_MAP[conversion]?.mime : "application/pdf";
+
+    const isMultiFile = (conversion === "pdfToJpg" || conversion === "pdfToPng") && result.files.length > 1;
+
+    if (isMultiFile) {
+      const buffers: Array<{ filename: string; buffer: Buffer }> = [];
+      for (const file of result.files) {
+        const provider2 = getAdvancedConversionProvider();
+        const buf = await provider2.downloadResultFile(file.url);
+        buffers.push({ filename: file.filename, buffer: buf });
+      }
+
+      const zipBuffer = packAsZip(buffers);
+
+      return new NextResponse(new Uint8Array(zipBuffer), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/zip",
+          "Content-Disposition": 'attachment; filename="converted.zip"',
+          "Content-Length": zipBuffer.length.toString(),
+        },
+      });
+    }
+
+    const provider3 = getAdvancedConversionProvider();
+    const outputBuffer = await provider3.downloadResultFile(result.files[0].url);
 
     const isZip =
       (conversion === "pdfToJpg" || conversion === "pdfToPng") &&
@@ -173,9 +333,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       outputBuffer[3] === 0x04;
 
     const responseContentType = isZip ? "application/zip" : mime;
-    const responseFilename = isZip
-      ? `converted.zip`
-      : `converted.${ext}`;
+    const responseFilename = isZip ? "converted.zip" : `converted.${ext}`;
 
     return new NextResponse(new Uint8Array(outputBuffer), {
       status: 200,
@@ -187,60 +345,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Advanced conversion failed";
+      error instanceof Error ? error.message : "Failed to check conversion status";
 
-    console.error("[advanced-conversion] Error:", message);
+    console.error("[advanced-conversion] GET error:", message);
     if (error instanceof Error && error.stack) {
       console.error("[advanced-conversion] Stack:", error.stack);
-    }
-
-    const isAuthError =
-      message.includes("401") ||
-      message.includes("403") ||
-      message.includes("Invalid or unauthorized API key");
-    const isMissingKey =
-      message.includes("PDF_PROVIDER_API_KEY is not configured");
-    const isProviderError =
-      isAuthError ||
-      isMissingKey ||
-      message.includes("requires an external provider");
-    const isTimeout = message.includes("timed out");
-    const isCloudConvertError =
-      message.includes("CloudConvert") || message.includes("conversion failed");
-
-    if (isProviderError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "PROVIDER_REQUIRED",
-            message: isMissingKey
-              ? "PDF conversion service is not configured. Please set PDF_PROVIDER_API_KEY."
-              : isAuthError
-                ? "PDF conversion service authentication failed. Please check your API key."
-                : "This conversion requires an external provider. Set PDF_PROVIDER_API_KEY to enable this feature.",
-          },
-        },
-        { status: 501 }
-      );
-    }
-
-    let userMessage: string;
-    if (isTimeout) {
-      userMessage = "Conversion timed out. The file may be too large or complex. Please try a smaller file.";
-    } else if (isCloudConvertError) {
-      userMessage = `Conversion failed: ${message}`;
-    } else {
-      userMessage = "Failed to convert file. Please try again.";
     }
 
     return NextResponse.json(
       {
         success: false,
-        error: {
-          code: "CONVERSION_FAILED",
-          message: userMessage,
-        },
+        error: { code: "CONVERSION_FAILED", message },
       },
       { status: 500 }
     );

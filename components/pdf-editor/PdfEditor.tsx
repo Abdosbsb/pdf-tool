@@ -129,7 +129,7 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
       dispatch({ type: "SET_TOOL", payload: nextTool });
       dispatch({ type: "SELECT_ANNOTATION", payload: null });
 
-      if (nextTool && nextTool !== "comment") {
+      if (nextTool && nextTool !== "comment" && nextTool !== "draw") {
         const pageInfo = pageInfos.find((p) => p.pageNumber === state.currentPage);
         const pageW = pageInfo ? pageInfo.width : 595;
         const pageH = pageInfo ? pageInfo.height : 842;
@@ -379,6 +379,24 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
               });
               break;
             }
+
+            case "draw": {
+              if (ann.points && ann.points.length > 1) {
+                const lineColor = parseHexColor(ann.color || "#000000");
+                const lineW = ann.lineWidth || 2;
+                for (let i = 0; i < ann.points.length - 1; i++) {
+                  const p1 = ann.points[i];
+                  const p2 = ann.points[i + 1];
+                  page.drawLine({
+                    start: { x: pdfX + p1.x * scaleX, y: pdfY - p1.y * scaleY },
+                    end: { x: pdfX + p2.x * scaleX, y: pdfY - p2.y * scaleY },
+                    thickness: lineW,
+                    color: lineColor,
+                  });
+                }
+              }
+              break;
+            }
           }
         }
       }
@@ -407,6 +425,19 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
 
   const handleAnnotationResize = useCallback((id: string, width: number, height: number) => {
     dispatch({ type: "UPDATE_ANNOTATION", payload: { id, changes: { width, height } } });
+  }, []);
+
+  const handleAnnotationRotate = useCallback((id: string, rotation: number) => {
+    dispatch({ type: "UPDATE_ANNOTATION", payload: { id, changes: { rotation: Math.round(rotation) } } });
+  }, []);
+
+  const handleAnnotationUpdate = useCallback((id: string, changes: Partial<Annotation>) => {
+    dispatch({ type: "UPDATE_ANNOTATION", payload: { id, changes } });
+  }, []);
+
+  const handleDrawComplete = useCallback((annotation: Annotation) => {
+    dispatch({ type: "ADD_ANNOTATION", payload: annotation });
+    dispatch({ type: "SELECT_ANNOTATION", payload: annotation.id });
   }, []);
 
   const handleCommentPlace = useCallback(
@@ -563,12 +594,16 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
           onAnnotationSelect={handleAnnotationSelect}
           onAnnotationDrag={handleAnnotationDrag}
           onAnnotationResize={handleAnnotationResize}
+          onAnnotationRotate={handleAnnotationRotate}
+          onAnnotationUpdate={handleAnnotationUpdate}
+          onDrawComplete={handleDrawComplete}
           onCommentPlace={handleCommentPlace}
           onCommentUpdate={handleCommentUpdate}
           onCommentDelete={handleCommentDelete}
           fileId={fileId}
           pageWidth={currentPageInfo?.width || 595}
           pageHeight={currentPageInfo?.height || 842}
+          toolOptions={toolOptions}
         />
 
         <ToolOptions

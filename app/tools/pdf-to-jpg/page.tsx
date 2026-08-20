@@ -7,6 +7,7 @@ import FileUpload from "@/components/upload/FileUpload";
 import InputPreview from "@/components/file-preview/InputPreview";
 import Button from "@/components/ui/Button";
 import JSZip from "jszip";
+import { runConversion } from "@/lib/advanced-conversion-client";
 
 function PdfToJpgContent() {
   const { t } = useLanguage();
@@ -24,37 +25,13 @@ function PdfToJpgContent() {
 
   const handleConvert = useCallback(async () => {
     if (!file) return;
-
     startProcessing();
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("conversion", "pdfToJpg");
+      const result = await runConversion(file, "pdfToJpg", "converted.jpg");
 
-      const res = await fetch("/api/tools/advanced", { method: "POST", body: formData });
-
-      const contentType = res.headers.get("content-type") || "";
-      if (!res.ok) {
-        let errCode: string | undefined;
-        let errMsg: string | undefined;
-        if (contentType.includes("application/json")) {
-          const err = await res.json();
-          errCode = err?.error?.code;
-          errMsg = err?.error?.message;
-        } else {
-          errMsg = await res.text().catch(() => "");
-        }
-        if (errCode === "PROVIDER_REQUIRED") {
-          fail(t("toolPages.providerRequired"));
-          return;
-        }
-        throw new Error(errMsg || t("processing.failed"));
-      }
-      const blob = await res.blob();
-
-      if (contentType.includes("application/zip")) {
-        const zip = await JSZip.loadAsync(blob);
+      if (result.blob.type === "application/zip" || result.filename.endsWith(".zip")) {
+        const zip = await JSZip.loadAsync(result.blob);
         const entries = Object.values(zip.files).filter((f) => !f.dir);
         if (entries.length === 0) {
           throw new Error(t("processing.failed"));
@@ -64,11 +41,16 @@ function PdfToJpgContent() {
         const url = URL.createObjectURL(fileBlob);
         complete(url, firstEntry.name);
       } else {
-        const url = URL.createObjectURL(blob);
-        complete(url, "converted.jpg");
+        const url = URL.createObjectURL(result.blob);
+        complete(url, result.filename);
       }
     } catch (err) {
-      fail(err instanceof Error ? err.message : t("processing.failed"));
+      const msg = err instanceof Error ? err.message : t("processing.failed");
+      if (msg === "PROVIDER_REQUIRED") {
+        fail(t("toolPages.providerRequired"));
+      } else {
+        fail(msg);
+      }
     }
   }, [file, startProcessing, complete, fail, t]);
 

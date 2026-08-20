@@ -11,6 +11,8 @@ export interface Annotation {
   color?: string;
   opacity?: number;
   rotation?: number;
+  points?: Array<{ x: number; y: number }>;
+  lineWidth?: number;
 }
 
 export interface EditorState {
