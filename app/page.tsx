@@ -1,15 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
-import FileUpload from "@/components/upload/FileUpload";
 import ToolCard from "@/components/tools/ToolCard";
 import { TOOLS, TOOL_CATEGORIES } from "@/lib/tools";
 
 export default function HomePage() {
   const { t } = useLanguage();
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 
   return (
     <div className="flex flex-col">
@@ -27,6 +24,26 @@ export default function HomePage() {
                 href="/tools"
                 className="inline-flex items-center rounded-lg bg-brand-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
               >
+                {t("hero.upload")}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="ml-2 h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                  />
+                </svg>
+              </Link>
+              <Link
+                href="/tools"
+                className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
                 {t("hero.cta")}
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -43,21 +60,32 @@ export default function HomePage() {
                   />
                 </svg>
               </Link>
-              <Link
-                href="/tools/merge-pdf"
-                className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-              >
-                {t("hero.upload")}
-              </Link>
             </div>
           </div>
 
           <div className="mx-auto mt-16 max-w-2xl">
-            <FileUpload
-              accept={["pdf"]}
-              multiple
-              onFilesSelected={setUploadedFiles}
-            />
+            <div className="rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-12 text-center dark:border-gray-600 dark:bg-gray-800">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-900 dark:text-brand-400">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                </svg>
+              </div>
+              <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
+                {t("hero.upload")}
+              </p>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                {t("home.uploadSubtitle")}
+              </p>
+              <Link
+                href="/tools"
+                className="mt-4 inline-flex items-center rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-700"
+              >
+                {t("hero.upload")}
+                <svg xmlns="http://www.w3.org/2000/svg" className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                </svg>
+              </Link>
+            </div>
           </div>
         </div>
       </section>

@@ -20,17 +20,20 @@
     "cta": "Explore PDF Tools",
     "upload": "Upload PDF"
   },
+  "home": {
+    "uploadSubtitle": "Select a tool to get started with your PDF files"
+  },
   "upload": {
     "dragDrop": "Drag & drop files here",
     "or": "or",
     "browse": "Browse Files",
     "supported": "Supported: PDF, JPG, PNG",
-    "maxSize": "Maximum file size: 50MB",
+    "maxSize": "Maximum file size: 100MB",
     "remove": "Remove",
     "uploading": "Uploading...",
     "error": "Upload failed. Please try again.",
     "invalidType": "Invalid file type. Please upload a PDF, JPG, or PNG file.",
-    "tooLarge": "File is too large. Maximum size is 50MB."
+    "tooLarge": "File is too large. Maximum size is 100MB."
   },
   "tools": {
     "organize": {
@@ -388,7 +391,10 @@
     "capture": "Capture",
     "cameraPermissionDenied": "Camera access was denied. Please allow camera permissions in your browser settings.",
     "cameraUnavailable": "No camera found. Please connect a camera and try again.",
+    "cameraInUse": "Camera is being used by another application. Please close other camera apps and try again.",
+    "cameraNotSupported": "Camera is not supported in this browser. Please try a different browser.",
     "cameraError": "Unable to access camera. Please check your device settings.",
+    "switchCamera": "Switch Camera",
     "tryAgain": "Try Again",
     "createPdf": "Create PDF",
     "imageToPdf": "Image to PDF"

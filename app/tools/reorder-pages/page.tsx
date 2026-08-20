@@ -6,6 +6,7 @@ import ToolPage, { useToolPage } from "@/components/tools/ToolPage";
 import FileUpload from "@/components/upload/FileUpload";
 import Button from "@/components/ui/Button";
 import { formatFileSize } from "@/lib/file-utils";
+import { reorderPages } from "@/lib/pdf/client-processor";
 
 function ReorderPagesContent() {
   const { t } = useLanguage();
@@ -23,30 +24,34 @@ function ReorderPagesContent() {
     setNewOrder("");
   }, []);
 
+  const parseOrder = useCallback((input: string): number[] => {
+    const order: number[] = [];
+    const parts = input.split(",").map((s) => s.trim());
+    for (const part of parts) {
+      const num = parseInt(part, 10);
+      if (!isNaN(num)) order.push(num - 1);
+    }
+    return order;
+  }, []);
+
   const handleReorder = useCallback(async () => {
     if (!file || !newOrder.trim()) return;
 
     startProcessing();
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("pageOrder", newOrder.trim());
-
-      const res = await fetch("/api/tools/split", { method: "POST", body: formData });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error?.message || t("processing.failed"));
+      const order = parseOrder(newOrder);
+      if (order.length === 0) {
+        throw new Error(t("toolPages.invalidPageRange"));
       }
 
-      const blob = await res.blob();
+      const blob = await reorderPages(file, order);
       const url = URL.createObjectURL(blob);
       complete(url, "reordered.pdf");
     } catch (err) {
       fail(err instanceof Error ? err.message : t("processing.failed"));
     }
-  }, [file, newOrder, startProcessing, complete, fail, t]);
+  }, [file, newOrder, startProcessing, complete, fail, t, parseOrder]);
 
   const handleReset = useCallback(() => {
     setFile(null);

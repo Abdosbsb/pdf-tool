@@ -6,6 +6,7 @@ import ToolPage, { useToolPage } from "@/components/tools/ToolPage";
 import FileUpload from "@/components/upload/FileUpload";
 import Button from "@/components/ui/Button";
 import { formatFileSize } from "@/lib/file-utils";
+import { cropPage } from "@/lib/pdf/client-processor";
 
 function CropPdfContent() {
   const { t } = useLanguage();
@@ -35,23 +36,7 @@ function CropPdfContent() {
     startProcessing();
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("conversion", "crop");
-      formData.append("margins", JSON.stringify({ top: marginTop, bottom: marginBottom, left: marginLeft, right: marginRight }));
-
-      const res = await fetch("/api/tools/advanced", { method: "POST", body: formData });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        if (err?.error?.code === "PROVIDER_REQUIRED") {
-          fail(t("toolPages.providerRequired"));
-          return;
-        }
-        throw new Error(err?.error?.message || t("processing.failed"));
-      }
-
-      const blob = await res.blob();
+      const blob = await cropPage(file, 0, { top: marginTop, bottom: marginBottom, left: marginLeft, right: marginRight });
       const url = URL.createObjectURL(blob);
       complete(url, "cropped.pdf");
     } catch (err) {

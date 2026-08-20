@@ -6,6 +6,7 @@ import ToolPage, { useToolPage } from "@/components/tools/ToolPage";
 import FileUpload from "@/components/upload/FileUpload";
 import Button from "@/components/ui/Button";
 import { formatFileSize } from "@/lib/file-utils";
+import { mergeFiles } from "@/lib/pdf/client-processor";
 
 function MergePdfContent() {
   const { t } = useLanguage();
@@ -38,15 +39,7 @@ function MergePdfContent() {
     if (files.length < 2) return;
     startProcessing();
     try {
-      const formData = new FormData();
-      files.forEach((f) => formData.append("file", f));
-
-      const res = await fetch("/api/tools/merge", { method: "POST", body: formData });
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error?.message || t("processing.failed"));
-      }
-      const blob = await res.blob();
+      const blob = await mergeFiles(files);
       const url = URL.createObjectURL(blob);
       complete(url, "merged.pdf");
     } catch (err) {

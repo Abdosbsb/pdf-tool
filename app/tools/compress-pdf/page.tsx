@@ -6,6 +6,7 @@ import ToolPage, { useToolPage } from "@/components/tools/ToolPage";
 import FileUpload from "@/components/upload/FileUpload";
 import Button from "@/components/ui/Button";
 import { formatFileSize } from "@/lib/file-utils";
+import { compressFile } from "@/lib/pdf/client-processor";
 
 type QualityLevel = "low" | "medium" | "high";
 
@@ -38,23 +39,8 @@ function CompressPdfContent() {
     startProcessing();
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("quality", String(qualityMap[quality]));
-
-      const res = await fetch("/api/tools/compress", { method: "POST", body: formData });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error?.message || t("processing.failed"));
-      }
-
-      const inputSize = Number(res.headers.get("X-Input-Size")) || file.size;
-      const outputSize = Number(res.headers.get("X-Output-Size")) || 0;
-
-      const blob = await res.blob();
+      const { blob, inputSize, outputSize } = await compressFile(file, qualityMap[quality]);
       const url = URL.createObjectURL(blob);
-
       setResultData({ inputSize, outputSize });
       complete(url, "compressed.pdf");
     } catch (err) {

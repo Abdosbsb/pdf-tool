@@ -6,6 +6,7 @@ import ToolPage, { useToolPage } from "@/components/tools/ToolPage";
 import FileUpload from "@/components/upload/FileUpload";
 import Button from "@/components/ui/Button";
 import { formatFileSize } from "@/lib/file-utils";
+import { rotateFile } from "@/lib/pdf/client-processor";
 
 function RotatePdfContent() {
   const { t } = useLanguage();
@@ -28,18 +29,7 @@ function RotatePdfContent() {
     startProcessing();
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("degrees", String(degrees));
-
-      const res = await fetch("/api/tools/rotate", { method: "POST", body: formData });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error?.message || t("processing.failed"));
-      }
-
-      const blob = await res.blob();
+      const blob = await rotateFile(file, degrees);
       const url = URL.createObjectURL(blob);
       complete(url, "rotated.pdf");
     } catch (err) {

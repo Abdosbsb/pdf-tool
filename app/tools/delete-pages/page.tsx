@@ -6,6 +6,7 @@ import ToolPage, { useToolPage } from "@/components/tools/ToolPage";
 import FileUpload from "@/components/upload/FileUpload";
 import Button from "@/components/ui/Button";
 import { formatFileSize } from "@/lib/file-utils";
+import { deletePages } from "@/lib/pdf/client-processor";
 
 function DeletePagesContent() {
   const { t } = useLanguage();
@@ -51,18 +52,7 @@ function DeletePagesContent() {
         throw new Error(t("toolPages.invalidPageRange"));
       }
 
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("pagesToDelete", pages.join(","));
-
-      const res = await fetch("/api/tools/split", { method: "POST", body: formData });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error?.message || t("processing.failed"));
-      }
-
-      const blob = await res.blob();
+      const blob = await deletePages(file, pages);
       const url = URL.createObjectURL(blob);
       complete(url, "deleted_pages.pdf");
     } catch (err) {

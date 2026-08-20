@@ -6,6 +6,7 @@ import ToolPage, { useToolPage } from "@/components/tools/ToolPage";
 import FileUpload from "@/components/upload/FileUpload";
 import Button from "@/components/ui/Button";
 import { formatFileSize } from "@/lib/file-utils";
+import { addWatermark } from "@/lib/pdf/client-processor";
 
 type WatermarkPosition = "center" | "top" | "bottom";
 
@@ -37,26 +38,7 @@ function WatermarkContent() {
     startProcessing();
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("conversion", "watermark");
-      formData.append("watermarkText", watermarkText);
-      formData.append("watermarkPosition", position);
-      formData.append("watermarkOpacity", String(opacity / 100));
-      formData.append("fontSize", String(fontSize));
-
-      const res = await fetch("/api/tools/advanced", { method: "POST", body: formData });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        if (err?.error?.code === "PROVIDER_REQUIRED") {
-          fail(t("toolPages.providerRequired"));
-          return;
-        }
-        throw new Error(err?.error?.message || t("processing.failed"));
-      }
-
-      const blob = await res.blob();
+      const blob = await addWatermark(file, watermarkText, position, opacity / 100, fontSize);
       const url = URL.createObjectURL(blob);
       complete(url, "watermarked.pdf");
     } catch (err) {

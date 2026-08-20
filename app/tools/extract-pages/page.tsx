@@ -6,6 +6,7 @@ import ToolPage, { useToolPage } from "@/components/tools/ToolPage";
 import FileUpload from "@/components/upload/FileUpload";
 import Button from "@/components/ui/Button";
 import { formatFileSize } from "@/lib/file-utils";
+import { extractPages } from "@/lib/pdf/client-processor";
 
 function ExtractPagesContent() {
   const { t } = useLanguage();
@@ -23,30 +24,41 @@ function ExtractPagesContent() {
     setPagesToExtract("");
   }, []);
 
+  const parsePages = useCallback((input: string): number[] => {
+    const pages: number[] = [];
+    const parts = input.split(",").map((s) => s.trim());
+    for (const part of parts) {
+      if (part.includes("-")) {
+        const [start, end] = part.split("-").map(Number);
+        for (let i = start; i <= end; i++) {
+          if (!pages.includes(i)) pages.push(i);
+        }
+      } else {
+        const num = parseInt(part, 10);
+        if (!isNaN(num) && !pages.includes(num)) pages.push(num);
+      }
+    }
+    return pages.sort((a, b) => a - b);
+  }, []);
+
   const handleExtract = useCallback(async () => {
     if (!file || !pagesToExtract.trim()) return;
 
     startProcessing();
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("pagesToExtract", pagesToExtract.trim());
-
-      const res = await fetch("/api/tools/split", { method: "POST", body: formData });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error?.message || t("processing.failed"));
+      const pages = parsePages(pagesToExtract);
+      if (pages.length === 0) {
+        throw new Error(t("toolPages.invalidPageRange"));
       }
 
-      const blob = await res.blob();
+      const blob = await extractPages(file, pages);
       const url = URL.createObjectURL(blob);
       complete(url, "extracted_pages.pdf");
     } catch (err) {
       fail(err instanceof Error ? err.message : t("processing.failed"));
     }
-  }, [file, pagesToExtract, startProcessing, complete, fail, t]);
+  }, [file, pagesToExtract, startProcessing, complete, fail, t, parsePages]);
 
   const handleReset = useCallback(() => {
     setFile(null);

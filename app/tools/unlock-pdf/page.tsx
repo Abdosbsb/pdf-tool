@@ -6,6 +6,7 @@ import ToolPage, { useToolPage } from "@/components/tools/ToolPage";
 import FileUpload from "@/components/upload/FileUpload";
 import Button from "@/components/ui/Button";
 import { formatFileSize } from "@/lib/file-utils";
+import { unlockFile } from "@/lib/pdf/client-processor";
 
 function UnlockPdfContent() {
   const { t } = useLanguage();
@@ -29,18 +30,7 @@ function UnlockPdfContent() {
     startProcessing();
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("password", password);
-
-      const res = await fetch("/api/tools/unlock", { method: "POST", body: formData });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error?.message || t("processing.failed"));
-      }
-
-      const blob = await res.blob();
+      const blob = await unlockFile(file, password);
       const url = URL.createObjectURL(blob);
       complete(url, "unlocked.pdf");
     } catch (err) {

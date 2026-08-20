@@ -6,6 +6,7 @@ import ToolPage, { useToolPage } from "@/components/tools/ToolPage";
 import FileUpload from "@/components/upload/FileUpload";
 import Button from "@/components/ui/Button";
 import { formatFileSize } from "@/lib/file-utils";
+import { protectFile } from "@/lib/pdf/client-processor";
 
 function ProtectPdfContent() {
   const { t } = useLanguage();
@@ -42,18 +43,7 @@ function ProtectPdfContent() {
     startProcessing();
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("password", password);
-
-      const res = await fetch("/api/tools/protect", { method: "POST", body: formData });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error?.message || t("processing.failed"));
-      }
-
-      const blob = await res.blob();
+      const blob = await protectFile(file, password);
       const url = URL.createObjectURL(blob);
       complete(url, "protected.pdf");
     } catch (err) {
