@@ -30,31 +30,64 @@ export function createFileMeta(name: string, size: number, type: string): FileMe
   };
 }
 
-export function isValidFileType(file: File, accepts: string[]): boolean {
-  const allExtensions: string[] = [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx", ".xls", ".xlsx", ".txt"];
-  const mimeToExt: Record<string, string[]> = {
-    "application/pdf": [".pdf"],
-    "image/jpeg": [".jpg", ".jpeg"],
-    "image/jpg": [".jpg", ".jpeg"],
-    "image/png": [".png"],
-    "application/msword": [".doc"],
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
-    "application/vnd.ms-excel": [".xls"],
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
-  };
+const CATEGORY_MAP: Record<string, { mimes: string[]; exts: string[] }> = {
+  pdf: {
+    mimes: ["application/pdf"],
+    exts: [".pdf"],
+  },
+  image: {
+    mimes: ["image/jpeg", "image/png", "image/jpg"],
+    exts: [".jpg", ".jpeg", ".png"],
+  },
+  word: {
+    mimes: [
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ],
+    exts: [".doc", ".docx"],
+  },
+  excel: {
+    mimes: [
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ],
+    exts: [".xls", ".xlsx"],
+  },
+};
 
-  const ext = file.name.includes(".") ? file.name.slice(file.name.lastIndexOf(".")).toLowerCase() : "";
-  const effectiveType = file.type || (ext && ext in mimeToExt ? "" : "");
+const MIME_TO_EXTS: Record<string, string[]> = {
+  "application/pdf": [".pdf"],
+  "image/jpeg": [".jpg", ".jpeg"],
+  "image/jpg": [".jpg", ".jpeg"],
+  "image/png": [".png"],
+  "application/msword": [".doc"],
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+  "application/vnd.ms-excel": [".xls"],
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+};
+
+export function isValidFileType(file: File, accepts: string[]): boolean {
+  const ext = file.name.includes(".")
+    ? file.name.slice(file.name.lastIndexOf(".")).toLowerCase()
+    : "";
 
   for (const accept of accepts) {
-    if (accept.startsWith(".")) {
-      if (ext === accept.toLowerCase()) return true;
+    const norm = accept.toLowerCase();
+
+    if (norm.startsWith(".")) {
+      if (ext === norm) return true;
       continue;
     }
 
-    const familyExts = mimeToExt[accept];
+    const category = CATEGORY_MAP[norm];
+    if (category) {
+      if (file.type && category.mimes.includes(file.type)) return true;
+      if (ext && category.exts.includes(ext)) return true;
+      continue;
+    }
+
+    const familyExts = MIME_TO_EXTS[accept];
     if (familyExts) {
-      if (file.type && familyExts.includes(file.type)) return true;
       if (file.type && file.type === accept) return true;
       if (ext && familyExts.includes(ext)) return true;
       continue;
@@ -63,9 +96,8 @@ export function isValidFileType(file: File, accepts: string[]): boolean {
     if (accept.startsWith("image/") || accept.startsWith("application/")) {
       if (file.type && file.type === accept) return true;
       if (ext) {
-        for (const [mime, exts] of Object.entries(mimeToExt)) {
-          if (mime === accept && exts.includes(ext)) return true;
-        }
+        const exts = MIME_TO_EXTS[accept];
+        if (exts && exts.includes(ext)) return true;
       }
     }
   }

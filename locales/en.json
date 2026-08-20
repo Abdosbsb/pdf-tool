@@ -32,7 +32,11 @@
     "remove": "Remove",
     "uploading": "Uploading...",
     "error": "Upload failed. Please try again.",
-    "invalidType": "Invalid file type. Please upload a PDF, JPG, or PNG file.",
+    "invalidType": "Invalid file type. Please upload a valid file.",
+    "invalidTypePdf": "Please upload a valid PDF file.",
+    "invalidTypeImage": "Please upload a JPG, JPEG, or PNG image.",
+    "invalidTypeWord": "Please upload a valid Word document (DOC/DOCX).",
+    "invalidTypeExcel": "Please upload a valid Excel file (XLS/XLSX).",
     "tooLarge": "File is too large. Maximum size is 100MB."
   },
   "filePreview": {

@@ -63,6 +63,7 @@ function ExcelToPdfContent() {
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "text/csv",
           ]}
+          typeErrorMessage={t("upload.invalidTypeExcel")}
           multiple={false}
           onFilesSelected={handleFileSelected}
           disabled={state !== "idle"}

@@ -8,6 +8,7 @@ interface FileUploadProps {
   accept?: string[];
   multiple?: boolean;
   maxSize?: number;
+  typeErrorMessage?: string;
   onFilesSelected: (files: File[]) => void;
   disabled?: boolean;
 }
@@ -21,6 +22,7 @@ export default function FileUpload({
   accept,
   multiple = false,
   maxSize = MAX_FILE_SIZE,
+  typeErrorMessage,
   onFilesSelected,
   disabled = false,
 }: FileUploadProps) {
@@ -113,15 +115,25 @@ export default function FileUpload({
       "application/vnd.ms-excel": ".xls",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
     };
-    const extraExts: string[] = [];
+    const categoryMap: Record<string, string> = {
+      pdf: ".pdf,application/pdf",
+      image: ".jpg,.jpeg,.png,image/jpeg,image/png",
+      word: ".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      excel: ".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    };
+    const parts: string[] = [];
     for (const a of accept) {
-      if (mimeExtMap[a]) extraExts.push(mimeExtMap[a]);
+      const norm = a.toLowerCase();
+      if (categoryMap[norm]) {
+        parts.push(categoryMap[norm]);
+      } else if (mimeExtMap[a]) {
+        parts.push(a + "," + mimeExtMap[a]);
+      } else {
+        parts.push(a);
+      }
     }
-    const exts = extraExts.length > 0 ? "," + extraExts.join(",") : "";
-    return accept.join(",") + exts;
+    return parts.join(",");
   }, [accept]);
-
-  const acceptedLabels = accept?.join(", ").toUpperCase() ?? "PDF";
 
   const imagePreviewUrls = useMemo(() => {
     const urls: Record<string, string> = {};
@@ -238,7 +250,7 @@ export default function FileUpload({
                   {entry.error && (
                     <p className="mt-0.5 text-xs text-red-600 dark:text-red-400">
                       {entry.error === "invalidType"
-                        ? t("upload.invalidType")
+                        ? typeErrorMessage || t("upload.invalidType")
                         : t("upload.tooLarge")}
                     </p>
                   )}

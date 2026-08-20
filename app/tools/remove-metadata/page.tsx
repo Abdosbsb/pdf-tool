@@ -46,6 +46,7 @@ function RemoveMetadataContent() {
       {!file && (state === "idle" || state === "failed") && (
         <FileUpload
           accept={["pdf"]}
+          typeErrorMessage={t("upload.invalidTypePdf")}
           multiple={false}
           onFilesSelected={handleFileSelected}
           disabled={state !== "idle"}

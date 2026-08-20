@@ -99,6 +99,7 @@ function ImageToPdfContent() {
     <div className="space-y-6">
       <FileUpload
         accept={["image/jpeg", "image/png", ".jpg", ".jpeg", ".png"]}
+        typeErrorMessage={t("upload.invalidTypeImage")}
         multiple
         onFilesSelected={handleFilesSelected}
         disabled={state !== "idle"}

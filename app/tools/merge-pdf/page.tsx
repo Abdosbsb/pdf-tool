@@ -55,6 +55,7 @@ function MergePdfContent() {
       {showUpload && (
         <FileUpload
           accept={["pdf"]}
+          typeErrorMessage={t("upload.invalidTypePdf")}
           multiple
           onFilesSelected={handleFilesSelected}
           disabled={state !== "idle"}

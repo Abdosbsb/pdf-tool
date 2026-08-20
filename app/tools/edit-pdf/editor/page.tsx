@@ -101,6 +101,7 @@ function EditorContent() {
         {!uploading && (
           <FileUpload
             accept={["pdf"]}
+            typeErrorMessage={t("upload.invalidTypePdf")}
             multiple={false}
             onFilesSelected={handleFileSelected}
           />

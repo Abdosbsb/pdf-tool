@@ -59,6 +59,7 @@ function WordToPdfContent() {
       {!file && (state === "idle" || state === "failed") && (
         <FileUpload
           accept={["application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]}
+          typeErrorMessage={t("upload.invalidTypeWord")}
           multiple={false}
           onFilesSelected={handleFileSelected}
           disabled={state !== "idle"}

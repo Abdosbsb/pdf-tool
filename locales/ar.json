@@ -32,7 +32,11 @@
     "remove": "إزالة",
     "uploading": "جاري الرفع...",
     "error": "فشل الرفع. يرجى المحاولة مرة أخرى.",
-    "invalidType": "نوع الملف غير صالح. يرجى رفع ملف PDF أو JPG أو PNG.",
+    "invalidType": "نوع الملف غير صالح. يرجى رفع ملف صالح.",
+    "invalidTypePdf": "يرجى رفع ملف PDF صالح.",
+    "invalidTypeImage": "يرجى رفع صورة JPG أو JPEG أو PNG.",
+    "invalidTypeWord": "يرجى رفع مستند Word صالح (DOC/DOCX).",
+    "invalidTypeExcel": "يرجى رفع ملف Excel صالح (XLS/XLSX).",
     "tooLarge": "الملف كبير جداً. الحد الأقصى للحجم هو 100 ميجابايت."
   },
   "filePreview": {

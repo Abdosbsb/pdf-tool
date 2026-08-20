@@ -80,6 +80,7 @@ function RotatePdfContent() {
       {showUpload && (
         <FileUpload
           accept={["pdf"]}
+          typeErrorMessage={t("upload.invalidTypePdf")}
           multiple={false}
           onFilesSelected={handleFileSelected}
           disabled={state !== "idle"}
