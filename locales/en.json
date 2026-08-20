@@ -42,7 +42,9 @@
     "fileNameEmpty": "File name cannot be empty",
     "pageCount": "pages",
     "pageCountSingular": "1 page",
-    "unknown": "File"
+    "unknown": "File",
+    "originalFile": "Original File",
+    "processedFile": "Processed File"
   },
   "tools": {
     "organize": {

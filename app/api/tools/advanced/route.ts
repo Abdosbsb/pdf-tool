@@ -164,11 +164,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       outputSize: outputBuffer.length,
     });
 
+    const isZip =
+      (conversion === "pdfToJpg" || conversion === "pdfToPng") &&
+      outputBuffer.length > 4 &&
+      outputBuffer[0] === 0x50 &&
+      outputBuffer[1] === 0x4b &&
+      outputBuffer[2] === 0x03 &&
+      outputBuffer[3] === 0x04;
+
+    const responseContentType = isZip ? "application/zip" : mime;
+    const responseFilename = isZip
+      ? `converted.zip`
+      : `converted.${ext}`;
+
     return new NextResponse(new Uint8Array(outputBuffer), {
       status: 200,
       headers: {
-        "Content-Type": mime,
-        "Content-Disposition": `attachment; filename="converted.${ext}"`,
+        "Content-Type": responseContentType,
+        "Content-Disposition": `attachment; filename="${responseFilename}"`,
         "Content-Length": outputBuffer.length.toString(),
       },
     });

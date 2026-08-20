@@ -42,7 +42,9 @@
     "fileNameEmpty": "لا يمكن أن يكون اسم الملف فارغاً",
     "pageCount": "صفحات",
     "pageCountSingular": "صفحة واحدة",
-    "unknown": "ملف"
+    "unknown": "ملف",
+    "originalFile": "الملف الأصلي",
+    "processedFile": "الملف المعالج"
   },
   "tools": {
     "organize": {

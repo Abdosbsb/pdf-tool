@@ -114,61 +114,71 @@ export default function ToolPage({
           {state === "idle" && <>{children}</>}
 
           {state === "processing" && (
-            <div className="flex flex-col items-center justify-center py-16">
-              <Spinner size="lg" />
-              <p className="mt-6 text-lg font-medium text-gray-700 dark:text-gray-300">
-                {t("processing.processing")}
-              </p>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {t(tool.nameKey)}
-              </p>
-            </div>
-          )}
-
-          {state === "completed" && (
             <>
               {children}
-              {downloadUrl && (
-                <FileResult
-                  url={downloadUrl}
-                  fileName={downloadName}
-                  onProcessAnother={reset}
-                />
-              )}
+              <div className="mt-6 flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-gray-50 py-12 dark:border-gray-700 dark:bg-gray-900">
+                <Spinner size="lg" />
+                <p className="mt-6 text-lg font-medium text-gray-700 dark:text-gray-300">
+                  {t("processing.processing")}
+                </p>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {t(tool.nameKey)}
+                </p>
+              </div>
             </>
           )}
 
-          {state === "failed" && (
-            <div className="flex flex-col items-center justify-center py-16">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                </svg>
+          {state === "completed" && (
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="min-w-0">
+                {children}
               </div>
-              <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
-                {t("processing.failed")}
-              </p>
-              {error && (
-                <p className="mt-2 max-w-md text-center text-sm text-red-600 dark:text-red-400">
-                  {error}
-                </p>
-              )}
-              <div className="mt-6 flex gap-3">
-                <button
-                  type="button"
-                  onClick={reset}
-                  className="inline-flex items-center justify-center rounded-lg bg-brand-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-700"
-                >
-                  {t("common.retry")}
-                </button>
-                <Link
-                  href="/tools"
-                  className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                >
-                  {t("common.back")}
-                </Link>
+              <div className="min-w-0">
+                {downloadUrl && (
+                  <FileResult
+                    url={downloadUrl}
+                    fileName={downloadName}
+                    onProcessAnother={reset}
+                  />
+                )}
               </div>
             </div>
+          )}
+
+          {state === "failed" && (
+            <>
+              {children}
+              <div className="mt-6 flex flex-col items-center justify-center rounded-lg border border-red-200 bg-red-50 py-12 dark:border-red-800 dark:bg-red-950">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                  </svg>
+                </div>
+                <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
+                  {t("processing.failed")}
+                </p>
+                {error && (
+                  <p className="mt-2 max-w-md text-center text-sm text-red-600 dark:text-red-400">
+                    {error}
+                  </p>
+                )}
+                <div className="mt-6 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={reset}
+                    className="inline-flex items-center justify-center rounded-lg bg-brand-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+                  >
+                    {t("common.retry")}
+                  </button>
+                  <Link
+                    href="/tools"
+                    className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  >
+                    {t("common.back")}
+                  </Link>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>

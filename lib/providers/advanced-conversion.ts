@@ -52,6 +52,27 @@ class StubProvider implements AdvancedConversionProvider {
   }
 }
 
+function crc32(buf: Buffer): number {
+  let c = 0xffffffff;
+  const table = crc32.table;
+  for (let i = 0; i < buf.length; i++) {
+    c = table[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+  }
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+crc32.table = (() => {
+  const t = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let j = 0; j < 8; j++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    t[i] = c;
+  }
+  return t;
+})();
+
 const CC_API_BASE = "https://api.cloudconvert.com/v2";
 const POLL_INTERVAL_MS = 2000;
 const MAX_POLL_DURATION_MS = 240_000;
@@ -233,9 +254,12 @@ class CloudConvertProvider implements AdvancedConversionProvider {
     input: Buffer,
     inputFormat: string,
     outputFormat: string,
-    inputFileName: string,
-    archiveMultiple: boolean = false
+    inputFileName: string
   ): Promise<Buffer> {
+    console.log(
+      `[cloudconvert] Starting conversion: ${inputFormat} → ${outputFormat}, file: ${inputFileName}, size: ${input.length} bytes`
+    );
+
     const job = await createJob({
       "import-file": {
         operation: "import/upload",
@@ -249,7 +273,6 @@ class CloudConvertProvider implements AdvancedConversionProvider {
       "export-file": {
         operation: "export/url",
         input: "convert-file",
-        ...(archiveMultiple ? { archive_multiple_files: true } : {}),
       },
     });
 
@@ -260,12 +283,14 @@ class CloudConvertProvider implements AdvancedConversionProvider {
       throw new Error("CloudConvert did not provide an upload URL");
     }
 
+    console.log(`[cloudconvert] Uploading file to CloudConvert...`);
     await uploadFile(
       importTask.result.form.url,
       importTask.result.form.parameters,
       input,
       inputFileName
     );
+    console.log(`[cloudconvert] Upload complete, waiting for job ${job.data.id}...`);
 
     const completedJob = await waitForJob(job.data.id);
 
@@ -277,7 +302,76 @@ class CloudConvertProvider implements AdvancedConversionProvider {
       throw new Error("CloudConvert produced no output files");
     }
 
+    console.log(
+      `[cloudconvert] Conversion complete. Output files: ${files.map((f) => `${f.filename} (${f.size} bytes)`).join(", ")}`
+    );
+
     return downloadFile(files[0].url);
+  }
+
+  private async convertMultiple(
+    input: Buffer,
+    inputFormat: string,
+    outputFormat: string,
+    inputFileName: string
+  ): Promise<Array<{ filename: string; buffer: Buffer }>> {
+    console.log(
+      `[cloudconvert] Starting multi-file conversion: ${inputFormat} → ${outputFormat}, file: ${inputFileName}, size: ${input.length} bytes`
+    );
+
+    const job = await createJob({
+      "import-file": {
+        operation: "import/upload",
+      },
+      "convert-file": {
+        operation: "convert",
+        input: "import-file",
+        input_format: inputFormat,
+        output_format: outputFormat,
+      },
+      "export-file": {
+        operation: "export/url",
+        input: "convert-file",
+      },
+    });
+
+    const importTask = job.data.tasks.find(
+      (t) => t.operation === "import/upload"
+    );
+    if (!importTask?.result?.form) {
+      throw new Error("CloudConvert did not provide an upload URL");
+    }
+
+    console.log(`[cloudconvert] Uploading file to CloudConvert...`);
+    await uploadFile(
+      importTask.result.form.url,
+      importTask.result.form.parameters,
+      input,
+      inputFileName
+    );
+    console.log(`[cloudconvert] Upload complete, waiting for job ${job.data.id}...`);
+
+    const completedJob = await waitForJob(job.data.id);
+
+    const exportTask = completedJob.data.tasks.find(
+      (t) => t.operation === "export/url"
+    );
+    const files = exportTask?.result?.files;
+    if (!files || files.length === 0) {
+      throw new Error("CloudConvert produced no output files");
+    }
+
+    console.log(
+      `[cloudconvert] Multi-file conversion complete. Output files: ${files.map((f) => `${f.filename} (${f.size} bytes)`).join(", ")}`
+    );
+
+    const results: Array<{ filename: string; buffer: Buffer }> = [];
+    for (const file of files) {
+      const buffer = await downloadFile(file.url);
+      results.push({ filename: file.filename, buffer });
+    }
+
+    return results;
   }
 
   async pdfToWord(input: Buffer, fileName?: string): Promise<Buffer> {
@@ -309,23 +403,96 @@ class CloudConvertProvider implements AdvancedConversionProvider {
   }
 
   async pdfToJpg(input: Buffer, fileName?: string): Promise<Buffer> {
-    return this.convert(
+    const results = await this.convertMultiple(
       input,
       "pdf",
       "jpg",
-      fileName || "input.pdf",
-      true
+      fileName || "input.pdf"
     );
+    if (results.length === 1) {
+      return results[0].buffer;
+    }
+    return this.packAsZip(results);
   }
 
   async pdfToPng(input: Buffer, fileName?: string): Promise<Buffer> {
-    return this.convert(
+    const results = await this.convertMultiple(
       input,
       "pdf",
       "png",
-      fileName || "input.pdf",
-      true
+      fileName || "input.pdf"
     );
+    if (results.length === 1) {
+      return results[0].buffer;
+    }
+    return this.packAsZip(results);
+  }
+
+  private packAsZip(files: Array<{ filename: string; buffer: Buffer }>): Buffer {
+    const localHeaders: Buffer[] = [];
+    const centralHeaders: Buffer[] = [];
+    let offset = 0;
+
+    for (const file of files) {
+      const name = Buffer.from(file.filename, "utf-8");
+      const crc = crc32(file.buffer);
+
+      const localHeader = Buffer.alloc(30 + name.length);
+      localHeader.writeUInt32LE(0x04034b50, 0);
+      localHeader.writeUInt16LE(20, 4);
+      localHeader.writeUInt16LE(0, 6);
+      localHeader.writeUInt16LE(0, 8);
+      localHeader.writeUInt16LE(0, 10);
+      localHeader.writeUInt16LE(0, 12);
+      localHeader.writeUInt32LE(crc, 14);
+      localHeader.writeUInt32LE(file.buffer.length, 18);
+      localHeader.writeUInt32LE(file.buffer.length, 22);
+      localHeader.writeUInt16LE(name.length, 26);
+      localHeader.writeUInt16LE(0, 28);
+      name.copy(localHeader, 30);
+
+      const centralHeader = Buffer.alloc(46 + name.length);
+      centralHeader.writeUInt32LE(0x02014b50, 0);
+      centralHeader.writeUInt16LE(20, 4);
+      centralHeader.writeUInt16LE(20, 6);
+      centralHeader.writeUInt16LE(0, 8);
+      centralHeader.writeUInt16LE(0, 10);
+      centralHeader.writeUInt16LE(0, 12);
+      centralHeader.writeUInt16LE(0, 14);
+      centralHeader.writeUInt32LE(crc, 16);
+      centralHeader.writeUInt32LE(file.buffer.length, 20);
+      centralHeader.writeUInt32LE(file.buffer.length, 24);
+      centralHeader.writeUInt16LE(name.length, 28);
+      centralHeader.writeUInt16LE(0, 30);
+      centralHeader.writeUInt16LE(0, 32);
+      centralHeader.writeUInt16LE(0, 34);
+      centralHeader.writeUInt16LE(0, 36);
+      centralHeader.writeUInt32LE(0, 38);
+      centralHeader.writeUInt32LE(offset, 42);
+      name.copy(centralHeader, 46);
+
+      localHeaders.push(localHeader, file.buffer);
+      centralHeaders.push(centralHeader);
+      offset += localHeader.length + file.buffer.length;
+    }
+
+    const centralDirOffset = offset;
+    let centralDirSize = 0;
+    for (const ch of centralHeaders) {
+      centralDirSize += ch.length;
+    }
+
+    const endRecord = Buffer.alloc(22);
+    endRecord.writeUInt32LE(0x06054b50, 0);
+    endRecord.writeUInt16LE(0, 4);
+    endRecord.writeUInt16LE(0, 6);
+    endRecord.writeUInt16LE(files.length, 8);
+    endRecord.writeUInt16LE(files.length, 10);
+    endRecord.writeUInt32LE(centralDirSize, 12);
+    endRecord.writeUInt32LE(centralDirOffset, 16);
+    endRecord.writeUInt16LE(0, 20);
+
+    return Buffer.concat([...localHeaders, ...centralHeaders, endRecord]);
   }
 
   private detectOfficeExtension(

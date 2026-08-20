@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import ToolPage, { useToolPage } from "@/components/tools/ToolPage";
 import FileUpload from "@/components/upload/FileUpload";
+import InputPreview from "@/components/file-preview/InputPreview";
 import Button from "@/components/ui/Button";
 import { formatFileSize } from "@/lib/file-utils";
 import { mergeFiles } from "@/lib/pdf/client-processor";
@@ -47,16 +48,20 @@ function MergePdfContent() {
     }
   }, [files, startProcessing, complete, fail, t]);
 
-  return (
-    <div className="space-y-6">
-      <FileUpload
-        accept={["pdf"]}
-        multiple
-        onFilesSelected={handleFilesSelected}
-        disabled={state !== "idle"}
-      />
+  const showUpload = state === "idle" || state === "failed";
 
-      {files.length > 0 && state === "idle" && (
+  return (
+    <div className="space-y-4">
+      {showUpload && (
+        <FileUpload
+          accept={["pdf"]}
+          multiple
+          onFilesSelected={handleFilesSelected}
+          disabled={state !== "idle"}
+        />
+      )}
+
+      {files.length > 0 && (
         <>
           <ul className="space-y-2">
             {files.map((file, i) => (
@@ -77,60 +82,80 @@ function MergePdfContent() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => moveFile(i, -1)}
-                    disabled={i === 0}
-                    className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-30 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-                    title={t("toolPages.moveUp")}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveFile(i, 1)}
-                    disabled={i === files.length - 1}
-                    className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-30 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-                    title={t("toolPages.moveDown")}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeFile(i)}
-                    className="rounded p-1.5 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900 dark:hover:text-red-400"
-                    title={t("toolPages.removeFile")}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
+                {state === "idle" && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => moveFile(i, -1)}
+                      disabled={i === 0}
+                      className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-30 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                      title={t("toolPages.moveUp")}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveFile(i, 1)}
+                      disabled={i === files.length - 1}
+                      className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-30 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                      title={t("toolPages.moveDown")}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="rounded p-1.5 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900 dark:hover:text-red-400"
+                      title={t("toolPages.removeFile")}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
 
-          {files.length < 2 && (
+          {files.length < 2 && state === "idle" && (
             <p className="text-sm text-amber-600 dark:text-amber-400">
               {t("toolPages.minimum2Files")}
             </p>
           )}
 
-          <Button
-            variant="primary"
-            size="lg"
-            onClick={handleMerge}
-            disabled={files.length < 2}
-            className="w-full"
-          >
-            {t("toolPages.mergePdf")}
-          </Button>
+          {state === "idle" && (
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={handleMerge}
+              disabled={files.length < 2}
+              className="w-full"
+            >
+              {t("toolPages.mergePdf")}
+            </Button>
+          )}
         </>
+      )}
+
+      {files.length > 0 && state === "idle" && (
+        <div className="pt-2">
+          <InputPreview
+            file={files[0]}
+            fileName={files[0].name}
+            fileSize={files.reduce((sum, f) => sum + f.size, 0)}
+            label={t("filePreview.originalFile")}
+          />
+          {files.length > 1 && (
+            <p className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
+              {files.length} {t("filePreview.pageCount")}
+            </p>
+          )}
+        </div>
       )}
     </div>
   );
