@@ -344,10 +344,17 @@ let providerInstance: AdvancedConversionProvider | null = null;
 
 export function getAdvancedConversionProvider(): AdvancedConversionProvider {
   if (!providerInstance) {
-    if (process.env.PDF_PROVIDER_API_KEY) {
+    const keyConfigured = !!process.env.PDF_PROVIDER_API_KEY;
+    console.log(
+      "[advanced-conversion] Initializing provider, API key configured:",
+      keyConfigured
+    );
+    if (keyConfigured) {
       providerInstance = new CloudConvertProvider();
+      console.log("[advanced-conversion] Using CloudConvertProvider");
     } else {
       providerInstance = new StubProvider();
+      console.log("[advanced-conversion] Using StubProvider (no API key)");
     }
   }
   return providerInstance;

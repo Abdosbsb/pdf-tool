@@ -50,6 +50,11 @@ const TOOL_ID_MAP: Record<string, string> = {
 };
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  console.log(
+    "[advanced-conversion] PDF_PROVIDER_API_KEY configured:",
+    !!process.env.PDF_PROVIDER_API_KEY
+  );
+
   try {
     const contentType = request.headers.get("content-type") || "";
     let fileId: string | undefined;
