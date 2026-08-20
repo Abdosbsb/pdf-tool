@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
 import { getToolById } from "@/lib/tools";
 import Spinner from "@/components/ui/Spinner";
+import FileResult from "@/components/file-preview/FileResult";
 
 type ProcessState = "idle" | "uploading" | "processing" | "completed" | "failed";
 
@@ -125,37 +126,16 @@ export default function ToolPage({
           )}
 
           {state === "completed" && (
-            <div className="flex flex-col items-center justify-center py-16">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                </svg>
-              </div>
-              <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
-                {t("processing.completed")}
-              </p>
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                {downloadUrl && (
-                  <a
-                    href={downloadUrl}
-                    download={downloadName}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-700"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                    </svg>
-                    {t("processing.download")}
-                  </a>
-                )}
-                <button
-                  type="button"
-                  onClick={reset}
-                  className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                >
-                  {t("processing.processAnother")}
-                </button>
-              </div>
-            </div>
+            <>
+              {children}
+              {downloadUrl && (
+                <FileResult
+                  url={downloadUrl}
+                  fileName={downloadName}
+                  onProcessAnother={reset}
+                />
+              )}
+            </>
           )}
 
           {state === "failed" && (

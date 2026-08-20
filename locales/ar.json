@@ -35,6 +35,15 @@
     "invalidType": "نوع الملف غير صالح. يرجى رفع ملف PDF أو JPG أو PNG.",
     "tooLarge": "الملف كبير جداً. الحد الأقصى للحجم هو 100 ميجابايت."
   },
+  "filePreview": {
+    "preview": "معاينة",
+    "previewUnavailable": "المعاينة غير متاحة",
+    "rename": "إعادة تسمية",
+    "fileNameEmpty": "لا يمكن أن يكون اسم الملف فارغاً",
+    "pageCount": "صفحات",
+    "pageCountSingular": "صفحة واحدة",
+    "unknown": "ملف"
+  },
   "tools": {
     "organize": {
       "title": "تنظيم PDF",

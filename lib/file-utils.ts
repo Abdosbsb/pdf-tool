@@ -78,3 +78,54 @@ export function formatFileSize(bytes: number): string {
 }
 
 export const MAX_FILE_SIZE = 100 * 1024 * 1024;
+
+const INVALID_FS_CHARS = /[\\/:*?"<>|\x00-\x1f]/g;
+
+export function parseFileName(fullName: string): { base: string; ext: string } {
+  const lastDot = fullName.lastIndexOf(".");
+  if (lastDot <= 0) return { base: fullName, ext: "" };
+  return { base: fullName.slice(0, lastDot), ext: fullName.slice(lastDot) };
+}
+
+export function sanitizeFileName(name: string): string {
+  return name.replace(INVALID_FS_CHARS, "").replace(/\s+/g, " ").trim();
+}
+
+export function ensureExtension(name: string, requiredExt: string): string {
+  if (!requiredExt) return name;
+  const { base, ext } = parseFileName(name);
+  const lowerExt = ext.toLowerCase();
+  const lowerReq = requiredExt.toLowerCase();
+  if (lowerExt === lowerReq) return name;
+  if (lowerReq.endsWith(lowerExt) && lowerExt.length > 0) return name;
+  return base + requiredExt;
+}
+
+export function getFileMimeType(file: File): string {
+  if (file.type) return file.type;
+  const { ext } = parseFileName(file.name);
+  const mimeMap: Record<string, string> = {
+    ".pdf": "application/pdf",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".doc": "application/msword",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xls": "application/vnd.ms-excel",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".txt": "text/plain",
+  };
+  return mimeMap[ext.toLowerCase()] || "application/octet-stream";
+}
+
+export function isPdfFile(mimeType: string): boolean {
+  return mimeType === "application/pdf";
+}
+
+export function isImageFile(mimeType: string): boolean {
+  return mimeType.startsWith("image/");
+}
+
+export function canPreviewInBrowser(mimeType: string): boolean {
+  return isPdfFile(mimeType) || isImageFile(mimeType);
+}

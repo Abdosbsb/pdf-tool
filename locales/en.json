@@ -35,6 +35,15 @@
     "invalidType": "Invalid file type. Please upload a PDF, JPG, or PNG file.",
     "tooLarge": "File is too large. Maximum size is 100MB."
   },
+  "filePreview": {
+    "preview": "Preview",
+    "previewUnavailable": "Preview unavailable",
+    "rename": "Rename",
+    "fileNameEmpty": "File name cannot be empty",
+    "pageCount": "pages",
+    "pageCountSingular": "1 page",
+    "unknown": "File"
+  },
   "tools": {
     "organize": {
       "title": "Organize PDF",

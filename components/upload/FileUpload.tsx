@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import { formatFileSize, isValidFileType, MAX_FILE_SIZE } from "@/lib/file-utils";
 
@@ -103,6 +103,16 @@ export default function FileUpload({
 
   const acceptedLabels = accept?.join(", ").toUpperCase() ?? "PDF";
 
+  const imagePreviewUrls = useMemo(() => {
+    const urls: Record<string, string> = {};
+    for (const entry of files) {
+      if (!entry.error && entry.file.type.startsWith("image/")) {
+        urls[`${entry.file.name}-${entry.file.size}`] = URL.createObjectURL(entry.file);
+      }
+    }
+    return urls;
+  }, [files]);
+
   return (
     <div className="w-full space-y-4">
       <div
@@ -171,22 +181,30 @@ export default function FileUpload({
               }`}
             >
               <div className="flex items-center gap-3 overflow-hidden">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-brand-900 dark:text-brand-400">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
-                    />
-                  </svg>
-                </div>
+                {imagePreviewUrls[`${entry.file.name}-${entry.file.size}`] ? (
+                  <img
+                    src={imagePreviewUrls[`${entry.file.name}-${entry.file.size}`]}
+                    alt={entry.file.name}
+                    className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-brand-900 dark:text-brand-400">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                      />
+                    </svg>
+                  </div>
+                )}
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-gray-700 dark:text-gray-300">
                     {entry.file.name}
