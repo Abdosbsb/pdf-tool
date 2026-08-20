@@ -5,14 +5,32 @@ import { createJob, updateJobStatus } from "@/lib/jobs";
 import { createFileMeta } from "@/lib/file-utils";
 import { ApiResponse } from "@/types";
 
-type ConversionType = "pdfToWord" | "wordToPdf" | "pdfToExcel" | "excelToPdf" | "pdfToText" | "watermark" | "pageNumbers" | "crop";
+type ConversionType =
+  | "pdfToWord"
+  | "wordToPdf"
+  | "pdfToExcel"
+  | "excelToPdf"
+  | "pdfToText"
+  | "pdfToJpg"
+  | "pdfToPng"
+  | "watermark"
+  | "pageNumbers"
+  | "crop";
 
 const EXTENSION_MAP: Record<string, { output: string; mime: string }> = {
-  pdfToWord: { output: "docx", mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+  pdfToWord: {
+    output: "docx",
+    mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  },
   wordToPdf: { output: "pdf", mime: "application/pdf" },
-  pdfToExcel: { output: "xlsx", mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+  pdfToExcel: {
+    output: "xlsx",
+    mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  },
   excelToPdf: { output: "pdf", mime: "application/pdf" },
   pdfToText: { output: "txt", mime: "text/plain" },
+  pdfToJpg: { output: "jpg", mime: "image/jpeg" },
+  pdfToPng: { output: "png", mime: "image/png" },
   watermark: { output: "pdf", mime: "application/pdf" },
   pageNumbers: { output: "pdf", mime: "application/pdf" },
   crop: { output: "pdf", mime: "application/pdf" },
@@ -24,6 +42,8 @@ const TOOL_ID_MAP: Record<string, string> = {
   pdfToExcel: "pdf-to-excel",
   excelToPdf: "excel-to-pdf",
   pdfToText: "pdf-to-text",
+  pdfToJpg: "pdf-to-jpg",
+  pdfToPng: "pdf-to-png",
   watermark: "watermark",
   pageNumbers: "page-numbers",
   crop: "crop-pdf",
@@ -35,11 +55,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     let fileId: string | undefined;
     let conversion: ConversionType | undefined;
     let file: File | null = null;
+    let inputFileName = "input";
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await request.formData();
       conversion = (formData.get("conversion") as string) as ConversionType;
       file = formData.get("file") as File | null;
+      if (file) {
+        inputFileName = file.name;
+      }
     } else {
       const body = await request.json();
       fileId = body.fileId;
@@ -56,7 +80,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       buffer = await storage.download(fileId);
     } else {
       return NextResponse.json(
-        { success: false, error: { code: "MISSING_FILE", message: "file is required" } },
+        {
+          success: false,
+          error: { code: "MISSING_FILE", message: "file is required" },
+        },
         { status: 400 }
       );
     }
@@ -67,14 +94,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           success: false,
           error: {
             code: "INVALID_CONVERSION",
-            message: "conversion must be one of: pdfToWord, wordToPdf, pdfToExcel, excelToPdf, pdfToText, watermark, pageNumbers, crop",
+            message:
+              "conversion must be one of: pdfToWord, wordToPdf, pdfToExcel, excelToPdf, pdfToText, pdfToJpg, pdfToPng",
           },
         },
         { status: 400 }
       );
     }
 
-    const job = createJob(TOOL_ID_MAP[conversion] as Parameters<typeof createJob>[0], [fileId || "direct"], buffer.length, { conversion });
+    const ext = EXTENSION_MAP[conversion].output;
+    const mime = EXTENSION_MAP[conversion].mime;
+
+    const job = createJob(
+      TOOL_ID_MAP[conversion] as Parameters<typeof createJob>[0],
+      [fileId || "direct"],
+      buffer.length,
+      { conversion }
+    );
     updateJobStatus(job.id, "PROCESSING");
 
     const provider = getAdvancedConversionProvider();
@@ -83,29 +119,39 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     switch (conversion) {
       case "pdfToWord":
-        outputBuffer = await provider.pdfToWord(buffer);
+        outputBuffer = await provider.pdfToWord(buffer, inputFileName);
         break;
       case "wordToPdf":
-        outputBuffer = await provider.wordToPdf(buffer);
+        outputBuffer = await provider.wordToPdf(buffer, inputFileName);
         break;
       case "pdfToExcel":
-        outputBuffer = await provider.pdfToExcel(buffer);
+        outputBuffer = await provider.pdfToExcel(buffer, inputFileName);
         break;
       case "excelToPdf":
-        outputBuffer = await provider.excelToPdf(buffer);
+        outputBuffer = await provider.excelToPdf(buffer, inputFileName);
         break;
       case "pdfToText": {
-        const text = await provider.pdfToText(buffer);
+        const text = await provider.pdfToText(buffer, inputFileName);
         outputBuffer = Buffer.from(text, "utf-8");
         break;
       }
+      case "pdfToJpg":
+        outputBuffer = await provider.pdfToJpg(buffer, inputFileName);
+        break;
+      case "pdfToPng":
+        outputBuffer = await provider.pdfToPng(buffer, inputFileName);
+        break;
       default:
-        throw new Error(`Conversion ${conversion} is not supported via external provider`);
+        throw new Error(
+          `Conversion ${conversion} is not supported via external provider`
+        );
     }
 
-    const ext = EXTENSION_MAP[conversion].output;
-    const mime = EXTENSION_MAP[conversion].mime;
-    const outputMeta = createFileMeta(`converted.${ext}`, outputBuffer.length, mime);
+    const outputMeta = createFileMeta(
+      `converted.${ext}`,
+      outputBuffer.length,
+      mime
+    );
     await storage.upload(outputMeta.id, outputBuffer, mime);
 
     updateJobStatus(job.id, "COMPLETED", {
@@ -113,29 +159,57 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       outputSize: outputBuffer.length,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        jobId: job.id,
-        status: "COMPLETED",
-        downloadUrl: `/api/files/${outputMeta.id}`,
-        outputSize: outputBuffer.length,
+    return new NextResponse(new Uint8Array(outputBuffer), {
+      status: 200,
+      headers: {
+        "Content-Type": mime,
+        "Content-Disposition": `attachment; filename="converted.${ext}"`,
+        "Content-Length": outputBuffer.length.toString(),
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Advanced conversion failed";
-    const needsProvider = message.includes("provider") || message.includes("API_KEY");
+    const message =
+      error instanceof Error ? error.message : "Advanced conversion failed";
+
+    console.error("[advanced-conversion]", message);
+
+    const isAuthError =
+      message.includes("401") ||
+      message.includes("403") ||
+      message.includes("Invalid or unauthorized API key");
+    const isMissingKey =
+      message.includes("PDF_PROVIDER_API_KEY is not configured");
+    const isProviderError =
+      isAuthError ||
+      isMissingKey ||
+      message.includes("requires an external provider");
+
+    if (isProviderError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "PROVIDER_REQUIRED",
+            message: isMissingKey
+              ? "PDF conversion service is not configured. Please set PDF_PROVIDER_API_KEY."
+              : isAuthError
+                ? "PDF conversion service authentication failed. Please check your API key."
+                : "This conversion requires an external provider. Set PDF_PROVIDER_API_KEY to enable this feature.",
+          },
+        },
+        { status: 501 }
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,
         error: {
-          code: needsProvider ? "PROVIDER_REQUIRED" : "CONVERSION_FAILED",
-          message: needsProvider
-            ? "This conversion requires an external provider. Set PDF_PROVIDER_API_KEY to enable this feature."
-            : "Failed to convert file",
+          code: "CONVERSION_FAILED",
+          message: "Failed to convert file. Please try again.",
         },
       },
-      { status: needsProvider ? 501 : 500 }
+      { status: 500 }
     );
   }
 }
