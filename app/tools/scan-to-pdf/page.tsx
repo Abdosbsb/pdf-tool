@@ -313,6 +313,23 @@ function ScanToPdfContent() {
     };
   }, []);
 
+  useEffect(() => {
+    if (view === "camera" && streamRef.current && videoRef.current && !videoRef.current.srcObject) {
+      const video = videoRef.current;
+      video.srcObject = streamRef.current;
+      video.play().then(() => {
+        const check = () => {
+          if (video.videoWidth > 0 && video.videoHeight > 0) {
+            setCameraReady(true);
+          } else {
+            setTimeout(check, 100);
+          }
+        };
+        check();
+      }).catch(() => {});
+    }
+  }, [view]);
+
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
@@ -355,7 +372,10 @@ function ScanToPdfContent() {
       }
 
       const video = videoRef.current;
-      if (!video) return;
+      if (!video) {
+        setView("camera");
+        return;
+      }
 
       video.srcObject = stream;
 

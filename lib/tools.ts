@@ -2,6 +2,15 @@ import { ToolMeta } from "@/types";
 
 export const TOOLS: ToolMeta[] = [
   {
+    id: "scan-to-pdf",
+    category: "convert",
+    nameKey: "tools.convert.scanToPdf.title",
+    descriptionKey: "tools.convert.scanToPdf.description",
+    href: "/tools/scan-to-pdf",
+    icon: "scan",
+    outputType: "application/pdf",
+  },
+  {
     id: "merge-pdf",
     category: "organize",
     nameKey: "tools.organize.mergePdf.title",
@@ -231,15 +240,6 @@ export const TOOLS: ToolMeta[] = [
     href: "/tools/remove-metadata",
     icon: "metadata",
     acceptsInput: ["pdf"],
-    outputType: "application/pdf",
-  },
-  {
-    id: "scan-to-pdf",
-    category: "convert",
-    nameKey: "tools.convert.scanToPdf.title",
-    descriptionKey: "tools.convert.scanToPdf.description",
-    href: "/tools/scan-to-pdf",
-    icon: "scan",
     outputType: "application/pdf",
   },
 ];
