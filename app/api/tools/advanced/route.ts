@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getStorageProvider } from "@/lib/storage";
 import { getAdvancedConversionProvider } from "@/lib/providers/advanced-conversion";
+
+const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
 type ConversionType =
   | "pdfToWord"
@@ -11,7 +12,7 @@ type ConversionType =
   | "pdfToJpg"
   | "pdfToPng";
 
-const EXTENSION_MAP: Record<string, { output: string; mime: string }> = {
+const EXTENSION_MAP: Record<ConversionType, { output: string; mime: string }> = {
   pdfToWord: {
     output: "docx",
     mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -22,12 +23,12 @@ const EXTENSION_MAP: Record<string, { output: string; mime: string }> = {
     mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   },
   excelToPdf: { output: "pdf", mime: "application/pdf" },
-  pdfToText: { output: "txt", mime: "text/plain" },
+  pdfToText: { output: "txt", mime: "text/plain; charset=utf-8" },
   pdfToJpg: { output: "jpg", mime: "image/jpeg" },
   pdfToPng: { output: "png", mime: "image/png" },
 };
 
-const FORMAT_MAP: Record<string, { inputFormat: string; outputFormat: string }> = {
+const FORMAT_MAP: Record<ConversionType, { inputFormat: string; outputFormat: string }> = {
   pdfToWord: { inputFormat: "pdf", outputFormat: "docx" },
   wordToPdf: { inputFormat: "docx", outputFormat: "pdf" },
   pdfToExcel: { inputFormat: "pdf", outputFormat: "xlsx" },
@@ -37,17 +38,21 @@ const FORMAT_MAP: Record<string, { inputFormat: string; outputFormat: string }> 
   pdfToPng: { inputFormat: "pdf", outputFormat: "png" },
 };
 
-function detectInputFormat(fileName: string, conversion: string): string {
+function detectInputFormat(fileName: string, conversion: ConversionType): string {
   const ext = fileName.split(".").pop()?.toLowerCase() || "";
   if (conversion === "wordToPdf") {
-    if (ext === "doc") return "doc";
-    return "docx";
+    return ext === "doc" ? "doc" : "docx";
   }
   if (conversion === "excelToPdf") {
-    if (ext === "xls") return "xls";
-    return "xlsx";
+    return ext === "xls" ? "xls" : "xlsx";
   }
-  return FORMAT_MAP[conversion]?.inputFormat || "pdf";
+  return FORMAT_MAP[conversion].inputFormat;
+}
+
+function buildOutputFilename(originalName: string, conversion: ConversionType): string {
+  const dotIndex = originalName.lastIndexOf(".");
+  const baseName = dotIndex > 0 ? originalName.substring(0, dotIndex) : originalName;
+  return `${baseName}.${EXTENSION_MAP[conversion].output}`;
 }
 
 function crc32(buf: Buffer): number {
@@ -145,6 +150,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   );
 
   try {
+    if (!process.env.PDF_PROVIDER_API_KEY) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "PROVIDER_REQUIRED",
+            message: "CloudConvert API key is not configured. Set PDF_PROVIDER_API_KEY.",
+          },
+        },
+        { status: 501 }
+      );
+    }
+
     const contentType = request.headers.get("content-type") || "";
     let file: File | null = null;
     let conversion: ConversionType | undefined;
@@ -179,16 +197,35 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           success: false,
           error: {
             code: "INVALID_CONVERSION",
-            message: "conversion must be one of: pdfToWord, wordToPdf, pdfToExcel, excelToPdf, pdfToText, pdfToJpg, pdfToPng",
+            message: "conversion must be one of: pdfToWord, wordToPdf, pdfToExcel, excelToPdf, pdfToText",
           },
         },
         { status: 400 }
       );
     }
 
+    if (file.size > MAX_FILE_SIZE) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "FILE_TOO_LARGE",
+            message: `File is too large (${sizeMB}MB). Maximum size is 100MB.`,
+          },
+        },
+        { status: 413 }
+      );
+    }
+
     const inputFileName = file.name || "input";
     const inputFormat = detectInputFormat(inputFileName, conversion);
     const outputFormat = FORMAT_MAP[conversion].outputFormat;
+    const outputFilename = buildOutputFilename(inputFileName, conversion);
+
+    console.log(
+      `[advanced-conversion] Converting: ${inputFileName} (${inputFormat} → ${outputFormat}), size: ${file.size} bytes`
+    );
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -207,7 +244,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({
       success: true,
-      data: { jobId, conversion },
+      data: { jobId, conversion, outputFilename },
     });
   } catch (error) {
     const message =
@@ -219,11 +256,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const isAuthError =
+      message.includes("Invalid API configuration") ||
       message.includes("401") ||
-      message.includes("403") ||
-      message.includes("Invalid or unauthorized API key");
+      message.includes("403");
     const isMissingKey =
-      message.includes("PDF_PROVIDER_API_KEY is not configured");
+      message.includes("CloudConvert API key is not configured") ||
+      message.includes("PDF_PROVIDER_API_KEY");
+    const isRateLimit = message.includes("rate limit");
 
     if (isAuthError || isMissingKey) {
       return NextResponse.json(
@@ -232,11 +271,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           error: {
             code: "PROVIDER_REQUIRED",
             message: isMissingKey
-              ? "PDF conversion service is not configured. Please set PDF_PROVIDER_API_KEY."
-              : "PDF conversion service authentication failed. Please check your API key.",
+              ? "CloudConvert API key is not configured. Set PDF_PROVIDER_API_KEY."
+              : "Invalid API configuration. Please check your PDF_PROVIDER_API_KEY.",
           },
         },
         { status: 501 }
+      );
+    }
+
+    if (isRateLimit) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: { code: "RATE_LIMITED", message: "CloudConvert rate limit reached. Please try again later." },
+        },
+        { status: 429 }
       );
     }
 
@@ -255,6 +304,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const { searchParams } = new URL(request.url);
     const jobId = searchParams.get("jobId");
     const conversion = searchParams.get("conversion") as ConversionType | null;
+    const outputFilename = searchParams.get("outputFilename") || "converted";
 
     if (!jobId) {
       return NextResponse.json(
@@ -304,8 +354,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (isMultiFile) {
       const buffers: Array<{ filename: string; buffer: Buffer }> = [];
       for (const file of result.files) {
-        const provider2 = getAdvancedConversionProvider();
-        const buf = await provider2.downloadResultFile(file.url);
+        const buf = await provider.downloadResultFile(file.url);
         buffers.push({ filename: file.filename, buffer: buf });
       }
 
@@ -315,14 +364,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         status: 200,
         headers: {
           "Content-Type": "application/zip",
-          "Content-Disposition": 'attachment; filename="converted.zip"',
+          "Content-Disposition": `attachment; filename="converted.zip"`,
           "Content-Length": zipBuffer.length.toString(),
         },
       });
     }
 
-    const provider3 = getAdvancedConversionProvider();
-    const outputBuffer = await provider3.downloadResultFile(result.files[0].url);
+    const outputBuffer = await provider.downloadResultFile(result.files[0].url);
 
     const isZip =
       (conversion === "pdfToJpg" || conversion === "pdfToPng") &&
@@ -333,7 +381,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       outputBuffer[3] === 0x04;
 
     const responseContentType = isZip ? "application/zip" : mime;
-    const responseFilename = isZip ? "converted.zip" : `converted.${ext}`;
+    const responseFilename = isZip ? "converted.zip" : outputFilename;
 
     return new NextResponse(new Uint8Array(outputBuffer), {
       status: 200,

@@ -1,6 +1,6 @@
 interface StartConversionResponse {
   success: boolean;
-  data?: { jobId: string; conversion: string };
+  data?: { jobId: string; conversion: string; outputFilename: string };
   error?: { code: string; message: string };
 }
 
@@ -52,14 +52,15 @@ export async function runConversion(
     throw new Error(startData.error?.message || "Failed to start conversion");
   }
 
-  const { jobId } = startData.data;
+  const { jobId, outputFilename: serverFilename } = startData.data;
+  const finalFilename = serverFilename || outputFilename;
   onProgress?.("Converting...");
 
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
 
     const pollRes = await fetch(
-      `/api/tools/advanced?jobId=${encodeURIComponent(jobId)}&conversion=${encodeURIComponent(conversion)}`
+      `/api/tools/advanced?jobId=${encodeURIComponent(jobId)}&conversion=${encodeURIComponent(conversion)}&outputFilename=${encodeURIComponent(finalFilename)}`
     );
 
     const contentType = pollRes.headers.get("content-type") || "";
@@ -77,7 +78,7 @@ export async function runConversion(
 
     if (pollData.data?.status === "finished") {
       const pollRes2 = await fetch(
-        `/api/tools/advanced?jobId=${encodeURIComponent(jobId)}&conversion=${encodeURIComponent(conversion)}`
+        `/api/tools/advanced?jobId=${encodeURIComponent(jobId)}&conversion=${encodeURIComponent(conversion)}&outputFilename=${encodeURIComponent(finalFilename)}`
       );
       const ct2 = pollRes2.headers.get("content-type") || "";
       if (!ct2.includes("application/json")) {
