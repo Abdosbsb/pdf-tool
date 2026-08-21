@@ -78,7 +78,10 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     }
 
     case "SELECT_ANNOTATION":
-      return { ...state, selectedAnnotationId: action.payload };
+      return { ...state, selectedAnnotationId: action.payload, editingAnnotationId: null };
+
+    case "SET_EDITING":
+      return { ...state, editingAnnotationId: action.payload };
 
     case "RESET":
       return {
@@ -87,6 +90,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         history: [[]],
         historyIndex: 0,
         selectedAnnotationId: null,
+        editingAnnotationId: null,
       };
 
     default:

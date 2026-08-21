@@ -43,6 +43,7 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
     history: [[]],
     historyIndex: 0,
     selectedAnnotationId: null,
+    editingAnnotationId: null,
   } satisfies EditorState);
 
   const [toolOptions, setToolOptions] = useState<Record<string, unknown>>({
@@ -79,20 +80,24 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
         e.preventDefault();
         dispatch({ type: "REDO" });
       } else if (e.key === "Delete" || e.key === "Backspace") {
-        if (state.selectedAnnotationId) {
+        if (state.selectedAnnotationId && !state.editingAnnotationId) {
           e.preventDefault();
           dispatch({ type: "REMOVE_ANNOTATION", payload: state.selectedAnnotationId });
           dispatch({ type: "SELECT_ANNOTATION", payload: null });
         }
       } else if (e.key === "Escape") {
-        dispatch({ type: "SELECT_ANNOTATION", payload: null });
-        dispatch({ type: "SET_TOOL", payload: "" });
+        if (state.editingAnnotationId) {
+          dispatch({ type: "SET_EDITING", payload: null });
+        } else {
+          dispatch({ type: "SELECT_ANNOTATION", payload: null });
+          dispatch({ type: "SET_TOOL", payload: "" });
+        }
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [state.selectedAnnotationId]);
+  }, [state.selectedAnnotationId, state.editingAnnotationId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,6 +212,7 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
             case "text": {
               const fontSize = ann.fontSize || 16;
               const text = ann.content || "";
+              if (!text) break;
               page.drawText(text, {
                 x: pdfX,
                 y: pdfY - fontSize,
@@ -440,8 +446,8 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
         pageNumber: state.currentPage,
         x,
         y,
-        content: state.activeTool === "text" ? ((toolOptions.text as string) || "Text") : undefined,
-        fontSize: (toolOptions.fontSize as number) || undefined,
+        content: undefined,
+        fontSize: (toolOptions.fontSize as number) || 16,
         color: (toolOptions.color as string) || undefined,
         opacity: (toolOptions.opacity as number) || undefined,
         rotation: (toolOptions.rotation as number) || undefined,
@@ -458,6 +464,10 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
 
       dispatch({ type: "ADD_ANNOTATION", payload: annotation });
       dispatch({ type: "SELECT_ANNOTATION", payload: annotation.id });
+
+      if (annotation.type === "text") {
+        dispatch({ type: "SET_EDITING", payload: annotation.id });
+      }
     },
     [state.activeTool, state.currentPage, toolOptions]
   );
@@ -476,6 +486,7 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
         color: (toolOptions.color as string) || "#FF0000",
       };
       dispatch({ type: "ADD_ANNOTATION", payload: annotation });
+      dispatch({ type: "SELECT_ANNOTATION", payload: annotation.id });
       setToolOptions((prev) => ({ ...prev, commentText: "" }));
     },
     [state.currentPage, toolOptions]
@@ -489,8 +500,34 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
     dispatch({ type: "REMOVE_ANNOTATION", payload: id });
   }, []);
 
-  const handleOptionChange = useCallback((key: string, value: unknown) => {
-    setToolOptions((prev) => ({ ...prev, [key]: value }));
+  const handleOptionChange = useCallback(
+    (key: string, value: unknown) => {
+      setToolOptions((prev) => ({ ...prev, [key]: value }));
+
+      if (state.selectedAnnotationId) {
+        const ann = state.annotations.find((a) => a.id === state.selectedAnnotationId);
+        if (ann) {
+          const changes: Partial<Annotation> = {};
+          if (key === "fontSize") changes.fontSize = value as number;
+          else if (key === "color") changes.color = value as string;
+          else if (key === "x") changes.x = value as number;
+          else if (key === "y") changes.y = value as number;
+          else if (key === "opacity") changes.opacity = value as number;
+          else if (key === "width") changes.width = value as number;
+          else if (key === "text") changes.content = value as string;
+          else if (key === "rotation") changes.rotation = value as number;
+
+          if (Object.keys(changes).length > 0) {
+            dispatch({ type: "UPDATE_ANNOTATION", payload: { id: state.selectedAnnotationId, changes } });
+          }
+        }
+      }
+    },
+    [state.selectedAnnotationId, state.annotations]
+  );
+
+  const handleRequestEdit = useCallback((id: string | null) => {
+    dispatch({ type: "SET_EDITING", payload: id });
   }, []);
 
   const handleDownloadResult = useCallback(() => {
@@ -510,6 +547,9 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
   }, [resultUrl]);
 
   const currentPageInfo = pageInfos.find((p) => p.pageNumber === state.currentPage);
+  const selectedAnnotation = state.selectedAnnotationId
+    ? state.annotations.find((a) => a.id === state.selectedAnnotationId) || null
+    : null;
 
   if (loading) {
     return (
@@ -613,6 +653,7 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
           annotations={state.annotations}
           activeTool={state.activeTool}
           selectedAnnotationId={state.selectedAnnotationId}
+          editingAnnotationId={state.editingAnnotationId}
           onAnnotationSelect={handleAnnotationSelect}
           onAnnotationDrag={handleAnnotationDrag}
           onAnnotationResize={handleAnnotationResize}
@@ -625,6 +666,7 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
           onCommentUpdate={handleCommentUpdate}
           onCommentDelete={handleCommentDelete}
           onPagePlace={handlePagePlace}
+          onRequestEdit={handleRequestEdit}
           fileId={fileId}
           pageWidth={currentPageInfo?.width || 595}
           pageHeight={currentPageInfo?.height || 842}
@@ -635,6 +677,7 @@ export default function PdfEditor({ fileId, fileName, initialTool }: PdfEditorPr
           activeTool={state.activeTool}
           options={toolOptions}
           onOptionChange={handleOptionChange}
+          selectedAnnotation={selectedAnnotation}
         />
       </div>
 

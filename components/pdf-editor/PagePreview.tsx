@@ -13,6 +13,7 @@ interface PagePreviewProps {
   annotations: Annotation[];
   activeTool?: string;
   selectedAnnotationId?: string | null;
+  editingAnnotationId?: string | null;
   onAnnotationSelect?: (id: string | null) => void;
   onAnnotationDrag?: (id: string, x: number, y: number) => void;
   onAnnotationResize?: (id: string, width: number, height: number) => void;
@@ -25,6 +26,7 @@ interface PagePreviewProps {
   onCommentUpdate?: (id: string, text: string) => void;
   onCommentDelete?: (id: string) => void;
   onPagePlace?: (x: number, y: number) => void;
+  onRequestEdit?: (id: string | null) => void;
   fileId: string;
   pageWidth: number;
   pageHeight: number;
@@ -38,6 +40,7 @@ export default function PagePreview({
   annotations,
   activeTool,
   selectedAnnotationId,
+  editingAnnotationId,
   onAnnotationSelect,
   onAnnotationDrag,
   onAnnotationResize,
@@ -50,6 +53,7 @@ export default function PagePreview({
   onCommentUpdate,
   onCommentDelete,
   onPagePlace,
+  onRequestEdit,
   fileId,
   pageWidth,
   pageHeight,
@@ -64,8 +68,7 @@ export default function PagePreview({
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
 
-  const [editingAnnotation, setEditingAnnotation] = useState<string | null>(null);
-  const [editAnnotationText, setEditAnnotationText] = useState("");
+  const [editTextValue, setEditTextValue] = useState("");
 
   const [drawingPoints, setDrawingPoints] = useState<Array<{ x: number; y: number }>>([]);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -75,6 +78,13 @@ export default function PagePreview({
   const rotateRef = useRef<{ annotationId: string; centerX: number; centerY: number; startAngle: number; startRotation: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const pageContainerRef = useRef<HTMLDivElement>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingAnnotationId && editInputRef.current) {
+      editInputRef.current.focus();
+    }
+  }, [editingAnnotationId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -218,10 +228,10 @@ export default function PagePreview({
         onAnnotationSelect?.(null);
         setSelectedComment(null);
         setEditingComment(null);
-        setEditingAnnotation(null);
+        onRequestEdit?.(null);
       }
     },
-    [activeTool, onCommentPlace, onPagePlace, onAnnotationSelect, scale]
+    [activeTool, onCommentPlace, onPagePlace, onAnnotationSelect, onRequestEdit, scale]
   );
 
   const handleAnnotationPointerDown = useCallback(
@@ -230,7 +240,6 @@ export default function PagePreview({
       onAnnotationSelect?.(id);
       setSelectedComment(null);
       setEditingComment(null);
-      setEditingAnnotation(null);
 
       const ann = annotations.find((a) => a.id === id);
       if (!ann) return;
@@ -372,20 +381,20 @@ export default function PagePreview({
       const ann = annotations.find((a) => a.id === id);
       if (!ann) return;
       if (ann.type === "text" || ann.type === "watermark") {
-        setEditingAnnotation(id);
-        setEditAnnotationText(ann.content || "");
+        setEditTextValue(ann.content || "");
+        onRequestEdit?.(id);
       }
     },
-    [annotations]
+    [annotations, onRequestEdit]
   );
 
   const handleAnnotationEditSave = useCallback(() => {
-    if (editingAnnotation && onAnnotationUpdate) {
-      onAnnotationUpdate(editingAnnotation, { content: editAnnotationText });
+    if (editingAnnotationId && onAnnotationUpdate) {
+      onAnnotationUpdate(editingAnnotationId, { content: editTextValue });
     }
-    setEditingAnnotation(null);
-    setEditAnnotationText("");
-  }, [editingAnnotation, editAnnotationText, onAnnotationUpdate]);
+    onRequestEdit?.(null);
+    setEditTextValue("");
+  }, [editingAnnotationId, editTextValue, onAnnotationUpdate, onRequestEdit]);
 
   const handleCommentClick = useCallback(
     (e: React.MouseEvent, id: string) => {
@@ -547,7 +556,8 @@ export default function PagePreview({
               type="button"
               onPointerDown={(e) => {
                 e.stopPropagation();
-                handleAnnotationDoubleClick(e as unknown as React.MouseEvent, annotation.id);
+                setEditTextValue(annotation.content || "");
+                onRequestEdit?.(annotation.id);
               }}
               title={t("editor.editComment")}
               className="flex h-7 w-7 items-center justify-center rounded text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600"
@@ -631,7 +641,7 @@ export default function PagePreview({
 
         {nonCommentAnnotations.map((annotation) => {
           const isSelected = selectedAnnotationId === annotation.id;
-          const isEditing = editingAnnotation === annotation.id;
+          const isEditing = editingAnnotationId === annotation.id;
 
           if (annotation.type === "draw") {
             return (
@@ -690,15 +700,19 @@ export default function PagePreview({
               )}
               {annotation.type === "text" && isEditing && (
                 <input
+                  ref={editInputRef}
                   autoFocus
-                  value={editAnnotationText}
-                  onChange={(e) => setEditAnnotationText(e.target.value)}
+                  value={editTextValue}
+                  onChange={(e) => {
+                    setEditTextValue(e.target.value);
+                    onAnnotationUpdate?.(annotation.id, { content: e.target.value });
+                  }}
                   onBlur={handleAnnotationEditSave}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleAnnotationEditSave();
                     if (e.key === "Escape") {
-                      setEditingAnnotation(null);
-                      setEditAnnotationText("");
+                      onRequestEdit?.(null);
+                      setEditTextValue("");
                     }
                   }}
                   className="border border-blue-500 bg-white px-1 py-0.5 outline-none"
@@ -725,15 +739,19 @@ export default function PagePreview({
               )}
               {annotation.type === "watermark" && isEditing && (
                 <input
+                  ref={editInputRef}
                   autoFocus
-                  value={editAnnotationText}
-                  onChange={(e) => setEditAnnotationText(e.target.value)}
+                  value={editTextValue}
+                  onChange={(e) => {
+                    setEditTextValue(e.target.value);
+                    onAnnotationUpdate?.(annotation.id, { content: e.target.value });
+                  }}
                   onBlur={handleAnnotationEditSave}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleAnnotationEditSave();
                     if (e.key === "Escape") {
-                      setEditingAnnotation(null);
-                      setEditAnnotationText("");
+                      onRequestEdit?.(null);
+                      setEditTextValue("");
                     }
                   }}
                   className="border border-blue-500 bg-white px-1 py-0.5 font-bold outline-none"

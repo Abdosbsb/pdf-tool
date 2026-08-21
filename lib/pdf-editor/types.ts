@@ -26,6 +26,7 @@ export interface EditorState {
   history: Annotation[][];
   historyIndex: number;
   selectedAnnotationId: string | null;
+  editingAnnotationId: string | null;
 }
 
 export type EditorAction =
@@ -36,6 +37,7 @@ export type EditorAction =
   | { type: "UPDATE_ANNOTATION"; payload: { id: string; changes: Partial<Annotation> } }
   | { type: "REMOVE_ANNOTATION"; payload: string }
   | { type: "SELECT_ANNOTATION"; payload: string | null }
+  | { type: "SET_EDITING"; payload: string | null }
   | { type: "UNDO" }
   | { type: "REDO" }
   | { type: "RESET" }

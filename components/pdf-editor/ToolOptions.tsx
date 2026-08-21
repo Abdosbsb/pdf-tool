@@ -6,11 +6,22 @@ interface ToolOptionsProps {
   activeTool: string;
   options: Record<string, unknown>;
   onOptionChange: (key: string, value: unknown) => void;
+  selectedAnnotation?: {
+    id: string;
+    type: string;
+    content?: string;
+    fontSize?: number;
+    color?: string;
+    x?: number;
+    y?: number;
+    width?: number;
+    opacity?: number;
+  } | null;
 }
 
 const colorPresets = ["#000000", "#FF0000", "#00AA00", "#0000FF", "#FF6600", "#9933CC"];
 
-export default function ToolOptions({ activeTool, options, onOptionChange }: ToolOptionsProps) {
+export default function ToolOptions({ activeTool, options, onOptionChange, selectedAnnotation }: ToolOptionsProps) {
   const { t } = useLanguage();
 
   if (!activeTool) {
@@ -37,7 +48,7 @@ export default function ToolOptions({ activeTool, options, onOptionChange }: Too
 
       <div className="flex-1 overflow-y-auto p-3">
         {activeTool === "text" && (
-          <TextOptions options={options} onOptionChange={onOptionChange} t={t} />
+          <TextOptions options={options} onOptionChange={onOptionChange} t={t} selectedAnnotation={selectedAnnotation} />
         )}
         {activeTool === "comment" && (
           <CommentOptions options={options} onOptionChange={onOptionChange} t={t} />
@@ -147,17 +158,35 @@ function TextOptions({
   options,
   onOptionChange,
   t,
+  selectedAnnotation,
 }: {
   options: Record<string, unknown>;
   onOptionChange: (key: string, value: unknown) => void;
   t: (k: string) => string;
+  selectedAnnotation?: {
+    id: string;
+    type: string;
+    content?: string;
+    fontSize?: number;
+    color?: string;
+    x?: number;
+    y?: number;
+    width?: number;
+    opacity?: number;
+  } | null;
 }) {
+  const displayFontSize = selectedAnnotation?.fontSize ?? ((options.fontSize as number) || 16);
+  const displayColor = selectedAnnotation?.color ?? ((options.color as string) || "#000000");
+  const displayX = selectedAnnotation?.x ?? ((options.x as number) || 100);
+  const displayY = selectedAnnotation?.y ?? ((options.y as number) || 100);
+  const displayText = selectedAnnotation?.content ?? ((options.text as string) || "");
+
   return (
     <div className="space-y-4">
       <div>
         <FieldLabel>{t("editor.addText")}</FieldLabel>
         <textarea
-          value={(options.text as string) || ""}
+          value={displayText}
           onChange={(e) => onOptionChange("text", e.target.value)}
           placeholder={t("editor.addText")}
           rows={3}
@@ -167,7 +196,7 @@ function TextOptions({
       <div>
         <FieldLabel>{t("toolPages.fontSize")}</FieldLabel>
         <NumberInput
-          value={(options.fontSize as number) || 16}
+          value={displayFontSize}
           onChange={(v) => onOptionChange("fontSize", v)}
           min={8}
           max={200}
@@ -182,7 +211,7 @@ function TextOptions({
               type="button"
               onClick={() => onOptionChange("color", c)}
               className={`h-6 w-6 rounded-full border-2 transition-transform ${
-                options.color === c
+                displayColor === c
                   ? "border-brand-500 scale-110"
                   : "border-gray-200 hover:scale-105"
               }`}
@@ -191,7 +220,7 @@ function TextOptions({
           ))}
           <input
             type="color"
-            value={(options.color as string) || "#000000"}
+            value={displayColor}
             onChange={(e) => onOptionChange("color", e.target.value)}
             className="h-6 w-6 cursor-pointer rounded-full border-0"
           />
@@ -200,7 +229,7 @@ function TextOptions({
       <div>
         <FieldLabel>Position X</FieldLabel>
         <NumberInput
-          value={(options.x as number) || 100}
+          value={Math.round(displayX)}
           onChange={(v) => onOptionChange("x", v)}
           min={0}
         />
@@ -208,7 +237,7 @@ function TextOptions({
       <div>
         <FieldLabel>Position Y</FieldLabel>
         <NumberInput
-          value={(options.y as number) || 100}
+          value={Math.round(displayY)}
           onChange={(v) => onOptionChange("y", v)}
           min={0}
         />
