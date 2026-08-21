@@ -6,6 +6,22 @@ export interface AdvancedConversionProvider {
     inputFileName: string
   ): Promise<{ jobId: string }>;
 
+  createConversionJob(
+    inputFormat: string,
+    outputFormat: string,
+    inputFileName: string
+  ): Promise<{
+    jobId: string;
+    upload: { url: string; parameters: Record<string, string | number> };
+  }>;
+
+  uploadToJob(
+    uploadUrl: string,
+    parameters: Record<string, string | number>,
+    file: Blob,
+    fileName: string
+  ): Promise<void>;
+
   pollConversion(
     jobId: string
   ): Promise<{
@@ -148,6 +164,34 @@ async function uploadFileToCC(
   }
 }
 
+async function uploadBlobToCC(
+  formUrl: string,
+  parameters: Record<string, string | number>,
+  file: Blob,
+  fileName: string
+): Promise<void> {
+  const formData = new FormData();
+
+  const keys = Object.keys(parameters);
+  for (const key of keys) {
+    formData.append(key, String(parameters[key]));
+  }
+
+  formData.append("file", file, fileName);
+
+  const res = await fetch(formUrl, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `File upload to CloudConvert failed (HTTP ${res.status}): ${text.slice(0, 200)}`
+    );
+  }
+}
+
 async function checkJobStatus(jobId: string): Promise<CCJobResponse> {
   const res = await ccFetch(`/jobs/${jobId}?include=tasks`);
 
@@ -183,6 +227,34 @@ class CloudConvertProvider implements AdvancedConversionProvider {
       `[cloudconvert] Starting conversion: ${inputFormat} → ${outputFormat}, file: ${inputFileName}, size: ${input.length} bytes`
     );
 
+    const job = await this.createConversionJob(inputFormat, outputFormat, inputFileName);
+
+    console.log(
+      `[cloudconvert] Uploading file to CloudConvert for job ${job.jobId}...`
+    );
+    await uploadFileToCC(
+      job.upload.url,
+      job.upload.parameters,
+      input,
+      inputFileName
+    );
+    console.log(`[cloudconvert] Upload complete for job ${job.jobId}`);
+
+    return { jobId: job.jobId };
+  }
+
+  async createConversionJob(
+    inputFormat: string,
+    outputFormat: string,
+    inputFileName: string
+  ): Promise<{
+    jobId: string;
+    upload: { url: string; parameters: Record<string, string | number> };
+  }> {
+    console.log(
+      `[cloudconvert] Creating conversion job: ${inputFormat} → ${outputFormat}, file: ${inputFileName}`
+    );
+
     const job = await createCCJob({
       "import-file": {
         operation: "import/upload",
@@ -214,16 +286,24 @@ class CloudConvertProvider implements AdvancedConversionProvider {
       throw new Error("CloudConvert did not provide an upload URL");
     }
 
-    console.log(`[cloudconvert] Uploading file to CloudConvert...`);
-    await uploadFileToCC(
-      importTask.result.form.url,
-      importTask.result.form.parameters,
-      input,
-      inputFileName
-    );
-    console.log(`[cloudconvert] Upload complete for job ${job.data.id}`);
+    return {
+      jobId: job.data.id,
+      upload: {
+        url: importTask.result.form.url,
+        parameters: importTask.result.form.parameters,
+      },
+    };
+  }
 
-    return { jobId: job.data.id };
+  async uploadToJob(
+    uploadUrl: string,
+    parameters: Record<string, string | number>,
+    file: Blob,
+    fileName: string
+  ): Promise<void> {
+    console.log(`[cloudconvert] Uploading file "${fileName}" to presigned URL...`);
+    await uploadBlobToCC(uploadUrl, parameters, file, fileName);
+    console.log(`[cloudconvert] Upload to presigned URL complete`);
   }
 
   async pollConversion(

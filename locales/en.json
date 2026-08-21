@@ -426,6 +426,17 @@
     "imageToPdf": "Image to PDF"
   },
   "scanner": {
+    "openCamera": "Open Camera",
+    "chooseImage": "Choose Image",
+    "chooseSource": "Scan a document or choose an image from your device",
+    "openingCamera": "Opening camera...",
+    "preview": "Preview",
+    "retake": "Retake",
+    "useImage": "Use Image",
+    "editBorders": "Edit Borders",
+    "adjustBorders": "Adjust Document Borders",
+    "enhancement": "Enhancement",
+    "creatingPdf": "Creating PDF...",
     "page": "Page",
     "pages": "Pages",
     "addPage": "Add Page",
@@ -444,12 +455,16 @@
     "editPages": "Edit Pages",
     "pdfPreview": "PDF Preview",
     "alignDocument": "Align document within the frame",
+    "detectingDocument": "Detecting document...",
+    "processingImage": "Processing image...",
+    "processingFailed": "Failed to process image. Please try again.",
+    "permissionDenied": "Camera access was denied. Please allow camera permissions in your browser settings.",
+    "cameraUnavailable": "No camera found. Please connect a camera and try again.",
+    "cameraInUse": "Camera is being used by another application. Please close other camera apps and try again.",
     "filterOriginal": "Original",
     "filterAuto": "Auto",
-    "filterColor": "Color",
     "filterGrayscale": "Grayscale",
-    "filterBw": "B&W",
-    "filterHighContrast": "High Contrast"
+    "filterBw": "B&W"
   },
   "footer": {
     "description": "Professional PDF tools for everyone. Fast, secure, and easy to use.",

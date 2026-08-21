@@ -426,6 +426,17 @@
     "imageToPdf": "صورة إلى PDF"
   },
   "scanner": {
+    "openCamera": "فتح الكاميرا",
+    "chooseImage": "اختيار صورة",
+    "chooseSource": "امسح مستنداً أو اختر صورة من جهازك",
+    "openingCamera": "جاري فتح الكاميرا...",
+    "preview": "معاينة",
+    "retake": "إعادة التقاط",
+    "useImage": "استخدام الصورة",
+    "editBorders": "تعديل الحدود",
+    "adjustBorders": "تعديل حدود المستند",
+    "enhancement": "تحسين",
+    "creatingPdf": "جاري إنشاء PDF...",
     "page": "صفحة",
     "pages": "الصفحات",
     "addPage": "إضافة صفحة",
@@ -444,12 +455,16 @@
     "editPages": "تعديل الصفحات",
     "pdfPreview": "معاينة PDF",
     "alignDocument": "قم بمحاذاة المستند داخل الإطار",
+    "detectingDocument": "جاري اكتشاف المستند...",
+    "processingImage": "جاري معالجة الصورة...",
+    "processingFailed": "فشلت معالجة الصورة. يرجى المحاولة مرة أخرى.",
+    "permissionDenied": "تم رفض الوصول إلى الكاميرا. يرجى السماح بصلاحيات الكاميرا في إعدادات المتصفح.",
+    "cameraUnavailable": "لم يتم العثور على كاميرا. يرجى توصيل كاميرا والمحاولة مرة أخرى.",
+    "cameraInUse": "الكاميرا مستخدمة من قبل تطبيق آخر. يرجى إغلاق تطبيقات الكاميرا الأخرى والمحاولة مرة أخرى.",
     "filterOriginal": "الأصلي",
     "filterAuto": "تلقائي",
-    "filterColor": "ملون",
     "filterGrayscale": "تدرج الرمادي",
-    "filterBw": "أبيض وأسود",
-    "filterHighContrast": "تباين عالي"
+    "filterBw": "أبيض وأسود"
   },
   "footer": {
     "description": "أدوات PDF احترافية للجميع. سريعة وآمنة وسهلة الاستخدام.",
